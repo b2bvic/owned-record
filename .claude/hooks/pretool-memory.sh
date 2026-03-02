@@ -1,0 +1,134 @@
+#!/bin/bash
+# Vault-as-Memory: Semantic Memory Hook
+# Fires on PreToolUse — extracts Claude's recent thinking from the
+# live transcript, queries the vault via QMD BM25, and injects
+# relevant context before tool execution.
+#
+# Architecture:
+#   PreToolUse fires → extract thinking → hash check → QMD search → inject
+#
+# Performance: ~200ms avg (BM25 keyword search, no embedding needed)
+# Budget: <500ms (synchronous hook — blocks tool execution until complete)
+#
+# REQUIRES: QMD (https://github.com/aethermonkey/qmd) installed and indexed.
+# If QMD is not available, this hook exits silently — no harm done.
+
+# Always exit 0 so we never block tool execution
+trap 'exit 0' ERR
+
+# ===== READ STDIN =====
+INPUT=$(cat)
+
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null)
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null)
+
+# ===== TOOL FILTER =====
+# Only fire for read-oriented tools where Claude is gathering context.
+# Skip writes (intent locked), QMD (avoid circular), browser, bash.
+case "$TOOL_NAME" in
+  Read|Glob|Grep|WebFetch|WebSearch|Task)
+    ;; # proceed — these are exploration/research tools
+  *)
+    exit 0
+    ;;
+esac
+
+# ===== TRANSCRIPT CHECK =====
+if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+  exit 0
+fi
+
+# ===== EXTRACT LAST THINKING BLOCK =====
+# tail is O(1) from end — safe even on 1GB+ transcripts.
+# Pull last 200 lines, find thinking blocks, take last 1500 chars.
+THINKING=$(tail -200 "$TRANSCRIPT_PATH" 2>/dev/null | \
+  jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "thinking") | .thinking' 2>/dev/null | \
+  tail -c 1500)
+
+# Need enough thinking to form a meaningful query
+if [ -z "$THINKING" ] || [ ${#THINKING} -lt 100 ]; then
+  exit 0
+fi
+
+# ===== TIME-BASED THROTTLE (30s) =====
+# Prevents token bloat from rapid-fire tool calls in the same reasoning arc.
+HASH_DIR="/tmp/claude-memory"
+mkdir -p "$HASH_DIR" 2>/dev/null
+THROTTLE_FILE="$HASH_DIR/${SESSION_ID}.last_fire"
+
+if [ -f "$THROTTLE_FILE" ]; then
+  LAST_FIRE=$(cat "$THROTTLE_FILE" 2>/dev/null)
+  NOW=$(date +%s)
+  ELAPSED=$(( NOW - LAST_FIRE ))
+  if [ "$ELAPSED" -lt 30 ]; then
+    exit 0
+  fi
+fi
+
+# ===== HASH DEDUP =====
+# Same thinking = same query = same results. Skip.
+HASH_FILE="$HASH_DIR/${SESSION_ID}.hash"
+
+# Portable: macOS uses `md5 -q`, Linux uses `md5sum`
+CURRENT_HASH=$(echo "$THINKING" | md5 -q 2>/dev/null || echo "$THINKING" | md5sum 2>/dev/null | cut -d' ' -f1)
+
+if [ -f "$HASH_FILE" ] && [ "$(cat "$HASH_FILE" 2>/dev/null)" = "$CURRENT_HASH" ]; then
+  exit 0
+fi
+
+echo "$CURRENT_HASH" > "$HASH_FILE"
+
+# ===== BUILD QUERY =====
+# Take last 500 chars of thinking (most recent reasoning = most relevant intent).
+# Strip non-alphanumeric noise (code symbols, JSON, etc.) for clean BM25 matching.
+QUERY=$(echo "$THINKING" | tail -c 500 | tr '\n' ' ' | sed 's/[^a-zA-Z0-9 ._/-]/ /g' | tr -s ' ' | head -c 300)
+
+if [ -z "$QUERY" ] || [ ${#QUERY} -lt 20 ]; then
+  exit 0
+fi
+
+# ===== QUERY QMD (BM25 ~166ms) =====
+# Try common install locations. If QMD isn't found, exit silently.
+QMD_BIN=""
+for candidate in \
+  "$HOME/.bun/bin/qmd" \
+  "$HOME/.local/bin/qmd" \
+  "/usr/local/bin/qmd" \
+  "$(command -v qmd 2>/dev/null)"; do
+  if [ -x "$candidate" ]; then
+    QMD_BIN="$candidate"
+    break
+  fi
+done
+
+if [ -z "$QMD_BIN" ]; then
+  # QMD not installed — hook degrades gracefully
+  exit 0
+fi
+
+RESULTS=$("$QMD_BIN" search "$QUERY" -n 3 --min-score 0.3 2>/dev/null)
+
+# Filter empty results
+if [ -z "$RESULTS" ] || echo "$RESULTS" | grep -qi "no results found"; then
+  exit 0
+fi
+
+# ===== INJECT CONTEXT =====
+CONTEXT="# Mid-Stream Memory Recall
+Vault content relevant to your current reasoning (auto-injected by PreToolUse hook):
+
+$RESULTS
+
+---
+If this context changes your approach, adjust before proceeding."
+
+# ===== RECORD FIRE TIME =====
+date +%s > "$THROTTLE_FILE"
+
+if command -v jq &> /dev/null; then
+  ESCAPED=$(echo "$CONTEXT" | jq -Rs .)
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":$ESCAPED}}"
+fi
+
+exit 0
