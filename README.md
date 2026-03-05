@@ -4,8 +4,6 @@
 
 An open-source Claude Code + Obsidian vault architecture that gives Claude persistent memory across conversations. Domain routing loads the right context automatically. Semantic search surfaces past sessions when relevant. Skills extend Claude's capabilities without re-explaining them every time.
 
-Built from a production system running 73+ sessions across 5 domains, managing two jobs, a client pipeline, and daily operations — all from one vault.
-
 ---
 
 ## What This Does
