@@ -1,0 +1,212 @@
+#!/usr/bin/env -S uv run --script --with click --with requests --with beautifulsoup4 --with markdownify --with lxml --with certifi --python 3.11 --quiet
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "click>=8.0",
+#   "requests>=2.31",
+#   "beautifulsoup4>=4.12",
+#   "markdownify>=0.13",
+#   "lxml>=5.0",
+#   "certifi",
+# ]
+# ///
+"""web2md — Convert any web page to clean markdown.
+
+Strips navigation, ads, cookie banners, and boilerplate.
+Preserves heading hierarchy, lists, tables, links, and code blocks.
+
+🌐 Victor Valentine Romo · victorvalentineromo.com · scalewithsearch.com
+"""
+
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse
+
+import click
+import requests
+from bs4 import BeautifulSoup, Comment
+from markdownify import markdownify as md
+
+VERSION = "1.0.0"
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) web2md/1.0"
+
+# Tags to remove entirely
+STRIP_TAGS = [
+    "script", "style", "nav", "footer", "header", "aside",
+    "iframe", "noscript", "svg", "form",
+]
+
+# Class/ID patterns that signal boilerplate
+BOILERPLATE_PATTERNS = re.compile(
+    r"(cookie|consent|banner|popup|modal|overlay|sidebar|widget|"
+    r"social[-_]?share|share[-_]?button|newsletter|subscribe|"
+    r"comment|disqus|related[-_]?post|recommended|ad[-_]?container|"
+    r"advertisement|sponsor|promo|footer|nav[-_]?bar|menu|"
+    r"breadcrumb|pagination|search[-_]?form)",
+    re.IGNORECASE,
+)
+
+
+def fetch_page(url: str) -> str:
+    """Fetch URL and return raw HTML."""
+    resp = requests.get(url, timeout=20, headers={
+        "User-Agent": UA,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+    })
+    resp.raise_for_status()
+    return resp.text
+
+
+def clean_html(html: str) -> BeautifulSoup:
+    """Parse HTML and strip boilerplate elements."""
+    soup = BeautifulSoup(html, "lxml")
+
+    # Remove unwanted tags
+    for tag_name in STRIP_TAGS:
+        for tag in soup.find_all(tag_name):
+            tag.decompose()
+
+    # Remove HTML comments
+    for comment in soup.find_all(string=lambda t: isinstance(t, Comment)):
+        comment.extract()
+
+    # Remove elements with boilerplate class/id patterns
+    for el in soup.find_all(True):
+        classes = " ".join(el.get("class", []))
+        el_id = el.get("id", "")
+        if BOILERPLATE_PATTERNS.search(classes) or BOILERPLATE_PATTERNS.search(el_id):
+            el.decompose()
+
+    # Remove empty elements (except br, hr, img)
+    for el in soup.find_all(True):
+        if el.name not in ("br", "hr", "img", "td", "th") and not el.get_text(strip=True) and not el.find("img"):
+            el.decompose()
+
+    return soup
+
+
+def extract_content(soup: BeautifulSoup) -> BeautifulSoup:
+    """Find the main content area."""
+    # Prefer semantic content containers
+    for selector in ["article", "main", "[role='main']", ".post-content", ".entry-content", ".article-body", "#content"]:
+        content = soup.select_one(selector)
+        if content and len(content.get_text(strip=True)) > 200:
+            return content
+
+    # Fallback to body
+    return soup.find("body") or soup
+
+
+def html_to_markdown(content: BeautifulSoup) -> str:
+    """Convert cleaned HTML to markdown."""
+    raw_md = md(
+        str(content),
+        heading_style="atx",
+        bullets="-",
+        code_language_callback=lambda el: el.get("class", [""])[0].replace("language-", "") if el.get("class") else "",
+        strip=["img"],  # Strip images by default — they'd be broken relative URLs
+        convert=["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li",
+                 "table", "thead", "tbody", "tr", "td", "th",
+                 "blockquote", "pre", "code", "a", "strong", "em", "br", "hr"],
+    )
+
+    # Clean up markdown
+    # Fix excessive blank lines
+    raw_md = re.sub(r"\n{4,}", "\n\n\n", raw_md)
+    # Fix heading spacing
+    raw_md = re.sub(r"\n*(#{1,6}\s)", r"\n\n\1", raw_md)
+    # Remove leading whitespace on lines (markdownify sometimes indents)
+    raw_md = re.sub(r"^[ \t]+(?=[^\s*\-\d])", "", raw_md, flags=re.MULTILINE)
+    # Strip trailing whitespace
+    raw_md = re.sub(r"[ \t]+$", "", raw_md, flags=re.MULTILINE)
+    # Ensure single newline at end
+    raw_md = raw_md.strip() + "\n"
+
+    return raw_md
+
+
+def extract_title(soup: BeautifulSoup) -> str:
+    """Get page title from H1 or <title> tag."""
+    h1 = soup.find("h1")
+    if h1:
+        return h1.get_text(strip=True)
+    title = soup.find("title")
+    if title:
+        return title.get_text(strip=True).split("|")[0].split("—")[0].strip()
+    return "Untitled"
+
+
+def url_to_slug(url: str) -> str:
+    """Convert URL to filename slug."""
+    parsed = urlparse(url)
+    domain = parsed.netloc.replace("www.", "")
+    path = parsed.path.strip("/").replace("/", "--")
+    slug = f"{domain}--{path}" if path else domain
+    # Clean
+    slug = re.sub(r"[^\w\-]", "-", slug)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug
+
+
+def count_headings(text: str) -> int:
+    """Count markdown headings."""
+    return len(re.findall(r"^#{1,6}\s", text, re.MULTILINE))
+
+
+def count_words(text: str) -> int:
+    """Rough word count."""
+    return len(text.split())
+
+
+@click.command()
+@click.argument("url")
+@click.option("--output", "-o", default=None, type=click.Path(), help="Output file path")
+@click.option("--stdout", "to_stdout", is_flag=True, help="Print to stdout instead of file")
+def main(url, output, to_stdout):
+    """Convert a web page to clean markdown.
+
+    \b
+    Examples:
+      web2md https://example.com/blog-post
+      web2md https://example.com/page -o article.md
+      web2md https://example.com/page --stdout | head
+    """
+    # Fetch
+    try:
+        html = fetch_page(url)
+    except requests.RequestException as e:
+        click.echo(f"Error fetching {url}: {e}", err=True)
+        sys.exit(1)
+
+    # Parse and clean
+    soup = clean_html(html)
+    title = extract_title(soup)
+    content = extract_content(soup)
+    markdown = html_to_markdown(content)
+
+    # Build output with frontmatter
+    today = datetime.now().strftime("%Y.%m.%d")
+    domain = urlparse(url).netloc.replace("www.", "")
+    result = f"source:: {url}\nfetched:: {today}\n\n# {title}\n\n{markdown}\n*Source: [{domain}]({url}) — fetched {today}*\n"
+
+    # Output
+    if to_stdout:
+        click.echo(result)
+    else:
+        out_path = Path(output) if output else Path(f"{url_to_slug(url)}.md")
+        out_path.write_text(result, encoding="utf-8")
+
+        headings = count_headings(markdown)
+        words = count_words(markdown)
+        click.echo(f"Done: {url}")
+        click.echo(f"  Output: {out_path}")
+        click.echo(f"  Title: {title}")
+        click.echo(f"  Headings: {headings}")
+        click.echo(f"  Words: ~{words}")
+
+
+if __name__ == "__main__":
+    main()
