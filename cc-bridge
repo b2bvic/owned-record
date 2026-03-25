@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""
+cc-bridge — Convert Claude Code JSONL transcripts to readable markdown logs.
+
+Incrementally parses Claude Code session transcripts and writes them as
+daily markdown files. Run on a timer (launchd/cron) or manually.
+
+Output format:
+  ### 8:14 PM — User (💻 terminal) `claude-code`
+  > user message here
+  **Claude:**
+  assistant response here
+
+Config via environment:
+  CC_BRIDGE_PROJECT   Claude Code project dir (auto-detected)
+  CC_BRIDGE_OUTPUT    Output directory for logs (default: ./claude-logs/)
+  CC_BRIDGE_TZ        Timezone (default: America/New_York)
+  CC_BRIDGE_USER      Username in log headers (default: User)
+
+🌐 Victor Valentine Romo · victorvalentineromo.com · scalewithsearch.com
+"""
+
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+# ---------------------------------------------------------------------------
+# Config — all via environment variables
+# ---------------------------------------------------------------------------
+
+TZ_NAME = os.environ.get("CC_BRIDGE_TZ", "America/New_York")
+ET = ZoneInfo(TZ_NAME)
+USERNAME = os.environ.get("CC_BRIDGE_USER", "User")
+
+# Auto-detect project dir
+def _find_project_dir():
+    override = os.environ.get("CC_BRIDGE_PROJECT")
+    if override:
+        return Path(override)
+    projects = Path.home() / ".claude" / "projects"
+    if projects.exists():
+        dirs = sorted(projects.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+        for d in dirs:
+            if d.is_dir() and not d.name.startswith("."):
+                return d
+    return projects
+
+PROJECTS_DIR = _find_project_dir()
+LOG_DIR = Path(os.environ.get("CC_BRIDGE_OUTPUT", str(Path.home() / "claude-logs")))
+STATE_FILE = Path.home() / ".claude" / "cc-bridge-state.json"
+
+MAX_RESPONSE_CHARS = 2000
+SOURCE_TAG = "claude-code"
+STALE_THRESHOLD_SECS = 120  # flush last exchange if file untouched this long
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[cc-bridge] %(message)s",
+)
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Transcript discovery
+# ---------------------------------------------------------------------------
+
+
+def find_active_transcript() -> "Path | None":
+    """Return the most recently modified root-level .jsonl transcript.
+
+    Only considers direct children of PROJECTS_DIR — UUID subdirectories
+    contain subagent transcripts which we skip.
+    """
+    if not PROJECTS_DIR.is_dir():
+        return None
+    candidates = [f for f in PROJECTS_DIR.iterdir() if f.suffix == ".jsonl" and f.is_file()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+# ---------------------------------------------------------------------------
+# State persistence
+# ---------------------------------------------------------------------------
+
+
+def load_state() -> dict:
+    if STATE_FILE.exists():
+        try:
+            return json.loads(STATE_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {"last_file": None, "last_position": 0, "last_timestamp": None}
+
+
+def save_state(state: dict) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# JSONL record extractors
+# ---------------------------------------------------------------------------
+
+
+def extract_user_text(record: dict) -> "str | None":
+    """Pull plain text from a real user message.
+
+    Returns None for:
+      - system-injected context (isMeta=True)
+      - tool result messages
+      - empty messages
+    """
+    if record.get("isMeta"):
+        return None
+
+    msg = record.get("message", {})
+    content = msg.get("content")
+    if content is None:
+        return None
+
+    # String content — direct user text
+    if isinstance(content, str):
+        return content.strip() or None
+
+    # Array of content blocks
+    if isinstance(content, list):
+        texts = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            # Any tool_result block means this is a tool return, not user input
+            if block.get("type") == "tool_result":
+                return None
+            if block.get("type") == "text":
+                t = block.get("text", "").strip()
+                if t:
+                    texts.append(t)
+        return "\n".join(texts) if texts else None
+
+    return None
+
+
+def extract_assistant_text(record: dict) -> "str | None":
+    """Pull text content from an assistant message.
+
+    Ignores tool_use and thinking blocks — only captures text the user saw.
+    """
+    msg = record.get("message", {})
+    content = msg.get("content")
+
+    if not isinstance(content, list):
+        return None
+
+    texts = []
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "text":
+            t = block.get("text", "").strip()
+            if t:
+                texts.append(t)
+    return "\n\n".join(texts) if texts else None
+
+
+def extract_timestamp(record: dict) -> "datetime | None":
+    """Parse record timestamp into ET-aware datetime."""
+    ts = record.get("timestamp")
+    if not ts:
+        return None
+    try:
+        if isinstance(ts, str):
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            return dt.astimezone(ET)
+        if isinstance(ts, (int, float)):
+            # Epoch seconds or milliseconds
+            epoch = ts / 1000 if ts > 1e12 else ts
+            dt = datetime.fromtimestamp(epoch, tz=timezone.utc)
+            return dt.astimezone(ET)
+    except (ValueError, OSError, OverflowError):
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Vault log writer
+# ---------------------------------------------------------------------------
+
+
+def format_time(dt: datetime) -> str:
+    """'8:14 PM' — no leading zero."""
+    return dt.strftime("%I:%M %p").lstrip("0")
+
+
+def indent_blockquote(text: str) -> str:
+    """Multi-line markdown blockquote."""
+    lines = text.strip().split("\n")
+    return "\n> ".join(lines)
+
+
+def truncate(text: str, limit: int = MAX_RESPONSE_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n\n[...truncated]"
+
+
+def ensure_log_file(log_file: Path, date_str: str) -> None:
+    """Create daily log with frontmatter if it doesn't exist yet."""
+    if log_file.exists():
+        return
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    header = (
+        f"---\n"
+        f"type:: claude-log\n"
+        f"date:: {date_str}\n"
+        f"user:: {USERNAME}\n"
+        f"sources:: {SOURCE_TAG}\n"
+        f"---\n\n"
+        f"# Claude Code — {USERNAME} — {date_str}\n"
+    )
+    log_file.write_text(header, encoding="utf-8")
+
+
+def write_exchange(user_text: str, assistant_text: str, timestamp: datetime) -> None:
+    """Append one exchange to the appropriate daily log file."""
+    date_str = timestamp.strftime("%Y.%m.%d")
+    time_str = format_time(timestamp)
+    log_file = LOG_DIR / f"{date_str}.md"
+
+    ensure_log_file(log_file, date_str)
+
+    entry = (
+        f"\n---\n\n"
+        f"### {time_str} — {USERNAME} (💻 terminal) `{SOURCE_TAG}`\n\n"
+        f"> {indent_blockquote(user_text)}\n\n"
+        f"**Claude:**\n\n"
+        f"{truncate(assistant_text)}\n"
+    )
+
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(entry)
+
+
+# ---------------------------------------------------------------------------
+# Core: incremental transcript processing
+# ---------------------------------------------------------------------------
+
+
+def process_transcript(transcript: Path, start_position: int) -> "tuple[int, int]":
+    """Parse new JSONL lines, write complete exchanges, return (safe_position, count).
+
+    Exchange boundary rule: an exchange is "complete" when a SUBSEQUENT real
+    user message appears (proving the assistant finished responding). The last
+    exchange in a stale file (>STALE_THRESHOLD_SECS since last modification)
+    is also flushed, since the session likely ended.
+
+    safe_position always points to the start of the oldest unflushed user
+    message, so incomplete exchanges are re-read on the next invocation.
+    """
+    file_size = transcript.stat().st_size
+    if file_size <= start_position:
+        return start_position, 0
+
+    complete_exchanges = []
+    current_user = None          # (text, timestamp, byte_offset_of_line)
+    current_assistant_texts = []
+
+    with open(transcript, "r", encoding="utf-8") as f:
+        f.seek(start_position)
+
+        while True:
+            line_start = f.tell()
+            line = f.readline()
+            if not line:
+                break
+
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            try:
+                record = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+
+            rtype = record.get("type")
+
+            if rtype == "user":
+                user_text = extract_user_text(record)
+                if user_text:
+                    # New real user message — flush the previous exchange
+                    if current_user and current_assistant_texts:
+                        u_text, u_ts, _ = current_user
+                        complete_exchanges.append({
+                            "user_text": u_text,
+                            "timestamp": u_ts,
+                            "assistant_text": "\n\n".join(current_assistant_texts),
+                            "boundary_pos": line_start,
+                        })
+                    current_user = (user_text, extract_timestamp(record), line_start)
+                    current_assistant_texts = []
+
+            elif rtype == "assistant" and current_user is not None:
+                text = extract_assistant_text(record)
+                if text:
+                    current_assistant_texts.append(text)
+
+        eof_pos = f.tell()
+
+    # Flush last exchange if file is stale (session probably ended)
+    flushed_last = False
+    if current_user and current_assistant_texts:
+        mtime = transcript.stat().st_mtime
+        if time.time() - mtime > STALE_THRESHOLD_SECS:
+            u_text, u_ts, _ = current_user
+            complete_exchanges.append({
+                "user_text": u_text,
+                "timestamp": u_ts,
+                "assistant_text": "\n\n".join(current_assistant_texts),
+                "boundary_pos": eof_pos,
+            })
+            current_user = None
+            flushed_last = True
+
+    # Write all complete exchanges
+    for ex in complete_exchanges:
+        write_exchange(
+            ex["user_text"],
+            ex["assistant_text"],
+            ex["timestamp"] or datetime.now(ET),
+        )
+
+    # Determine safe resume position
+    if flushed_last or current_user is None:
+        safe_pos = eof_pos
+    elif current_user is not None:
+        # Pending incomplete exchange — rewind to its user message
+        safe_pos = current_user[2]
+    else:
+        safe_pos = eof_pos
+
+    return safe_pos, len(complete_exchanges)
+
+
+# ---------------------------------------------------------------------------
+# Entrypoint
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    transcript = find_active_transcript()
+    if not transcript:
+        return
+
+    state = load_state()
+
+    # Reset position if the active transcript changed
+    transcript_str = str(transcript)
+    if state.get("last_file") != transcript_str:
+        start_pos = 0
+    else:
+        start_pos = state.get("last_position", 0)
+
+    # Nothing new to process
+    if transcript.stat().st_size <= start_pos:
+        return
+
+    new_pos, count = process_transcript(transcript, start_pos)
+
+    if count > 0:
+        log.info("Wrote %d exchange(s) to %s", count, LOG_DIR)
+
+    save_state({
+        "last_file": transcript_str,
+        "last_position": new_pos,
+        "last_timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+if __name__ == "__main__":
+    main()
