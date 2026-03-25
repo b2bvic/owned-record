@@ -1,4 +1,4 @@
-# Scale With Search
+# SubtleBodhi
 
 **Your AI forgets everything between sessions. This fixes that.**
 
@@ -24,8 +24,8 @@ An open-source Claude Code + Obsidian vault architecture that gives Claude persi
 
 ```bash
 # Clone the repo
-git clone https://github.com/b2bvic/scale-with-search.git
-cd scale-with-search
+git clone https://github.com/b2bvic/subtlebodhi.git
+cd subtlebodhi
 
 # Run interactive setup
 bash scripts/setup.sh
@@ -54,7 +54,7 @@ If you prefer to configure manually:
 ## Architecture
 
 ```
-scale-with-search/
+subtlebodhi/
 ├── CLAUDE.md              ← Master index (loaded every session)
 ├── _RECENT.md             ← Recently modified files
 ├── .claude/
@@ -202,6 +202,6 @@ MIT — do whatever you want with it.
 
 ## Author
 
-**Victor Romo** ([@b2bvic](https://x.com/b2bvic)) — [b2bvic.com](https://b2bvic.com) / [scalewithsearch.com](https://scalewithsearch.com)
+**Victor Valentine Romo** — [victorvalentineromo.com](https://victorvalentineromo.com) · [scalewithsearch.com](https://scalewithsearch.com)
 
 I build AI memory systems for people who run businesses. If you want this customized to your workflow: [get in touch](https://scalewithsearch.com).
