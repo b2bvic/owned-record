@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scale With Search — Vault Setup Script
+# SubtleBodhi vault setup script
 # Creates a personalized Claude Code vault from this template.
 #
 # Usage: ./scripts/setup.sh
@@ -10,7 +10,7 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo ""
-echo "  Scale With Search — Vault-as-Memory Setup"
+echo "  SubtleBodhi Vault-as-Memory Setup"
 echo "  ==========================================="
 echo ""
 echo "  This script personalizes your CLAUDE.md and creates"
@@ -140,10 +140,16 @@ if [ -n "$ROUTE_ADDITIONS" ]; then
   if [ -f "$HOOK_FILE" ]; then
     # Insert before the "ADD MORE DOMAINS HERE" comment
     TEMP_FILE=$(mktemp)
-    awk -v additions="$ROUTE_ADDITIONS" '
-      /^# ADD MORE DOMAINS HERE/ { print additions }
+    ADDITIONS_FILE=$(mktemp)
+    printf '%s\n' "$ROUTE_ADDITIONS" > "$ADDITIONS_FILE"
+    awk -v additions_file="$ADDITIONS_FILE" '
+      /^# ADD MORE DOMAINS HERE/ {
+        while ((getline line < additions_file) > 0) print line
+        close(additions_file)
+      }
       { print }
     ' "$HOOK_FILE" > "$TEMP_FILE"
+    rm -f "$ADDITIONS_FILE"
 
     # Also uncomment the commented domain example since we have real ones now
     mv "$TEMP_FILE" "$HOOK_FILE"

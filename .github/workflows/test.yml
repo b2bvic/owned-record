@@ -1,0 +1,20 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Check shell syntax
+        run: bash -n scripts/setup.sh .claude/hooks/*.sh tests/test_setup.sh
+      - name: Run setup smoke test
+        run: bash tests/test_setup.sh

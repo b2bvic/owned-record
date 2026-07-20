@@ -1,207 +1,122 @@
 # SubtleBodhi
 
-**Your AI forgets everything between sessions. This fixes that.**
+A public reference architecture for persistent agent memory, domain routing, and durable operating state inside an Obsidian or Markdown vault.
 
-An open-source Claude Code + Obsidian vault architecture that gives Claude persistent memory across conversations. Domain routing loads the right context automatically. Semantic search surfaces past sessions when relevant. Skills extend Claude's capabilities without re-explaining them every time.
+This repository is the architecture layer. It shows how prompts route to bounded domain context, how each domain carries current state and an activity trace, how local retrieval can add relevant memory before a tool call, and how reusable skills become filesystem artifacts instead of one-off prompt text.
 
----
+> **Repository boundary:** This is a genericized, Claude-first reference snapshot. It is not Victor's current private vault or an exact copy of the current provider/runtime stack. Private data, credentials, customer material, and deployment automation are omitted. The operating system has continued to evolve since this public extraction.
 
-## What This Does
+If you arrived through `github.com/b2bvic/scale-with-search`, GitHub redirected you here because the repository was renamed. The redirect remains intentional so older application and portfolio links still land on a useful technical surface.
 
-1. **Domain Routing** — Keywords in your prompt trigger automatic loading of relevant context files. Say "budget" and your personal finance context loads. Say "sprint" and your work context loads. No manual copy-pasting.
+## Implementation proof path
 
-2. **Semantic Memory** — A PreToolUse hook extracts Claude's current thinking, searches your vault via BM25, and injects relevant past sessions and patterns before tool execution. ~200ms, invisible to you.
+SubtleBodhi explains the system pattern. These smaller repositories expose bounded implementations that are faster to review:
 
-3. **Persistent State** — Each domain has a `_context.md` (current state) and `_log.md` (activity trace). Claude reads these every session, so it knows what happened last time.
+1. [pretool-memory](https://github.com/b2bvic/pretool-memory): transcript-tail retrieval, local BM25 and FTS5 lookup, throttling, hash deduplication, fail-open behavior, contract tests, and CI.
+2. [safe-api](https://github.com/b2bvic/safe-api): dry-run mutation controls, endpoint scope, duplicate callbacks, circuit breakers, incident artifacts, JSONL receipts, contract tests, and CI.
+3. [declip](https://github.com/b2bvic/declip): a local-first Apple Silicon video CLI with transcription, editing, captions, reframing, and export.
+4. [observer-protocol](https://github.com/b2bvic/observer-protocol): approval gates, correction history, drift detection, and observable agent loops.
 
-4. **Skills** — 17 slash commands that extend Claude's capabilities: thinking frameworks (`/consider-pareto`, `/consider-inversion`), session management (`/handoff`, `/log`), and utilities (`/scrape-deep`, `/web2md`).
+## What this reference implements
 
-5. **Self-Repair** — Skills detect and fix their own broken paths. If a folder moves, the skill finds it, updates its reference, logs the fix, and continues.
+- **Domain routing:** a `UserPromptSubmit` hook maps prompt keywords to a bounded `_context.md` file.
+- **Persistent state:** each domain carries `_context.md` for current state and `_log.md` for durable activity history.
+- **Local recall:** an optional `PreToolUse` hook searches a local Markdown index and session ledger before read-oriented tools.
+- **Reusable skills:** command files hold repeatable procedures, decision frameworks, session handoffs, reviews, and utilities.
+- **Ground-truth corrections:** a reference surface records durable corrections that future sessions can load.
 
----
-
-## Quick Start
+## Quick start
 
 ```bash
-# Clone the repo
 git clone https://github.com/b2bvic/subtlebodhi.git
 cd subtlebodhi
-
-# Run interactive setup
 bash scripts/setup.sh
-
-# Start Claude Code
 claude
 ```
 
-The setup script asks your name, project name, and domain structure. It personalizes `CLAUDE.md`, creates domain folders, and wires up the routing hook.
+The setup script asks for a name, project name, and domain structure. It replaces template placeholders, creates domain folders, updates the domain table and routing hook, makes hooks executable, and leaves the configured vault in the cloned directory.
 
----
+Review `scripts/setup.sh` before running it. Use a fresh clone or a backed-up vault because the script edits local template files.
 
-## Manual Setup
+## Manual setup
 
-If you prefer to configure manually:
+1. Copy the reference into an Obsidian vault or Markdown directory.
+2. Replace the placeholders in `CLAUDE.md`.
+3. Customize the keyword and path rules in `.claude/hooks/route-domain.sh`.
+4. Put current state in each domain's `_context.md` and append durable activity to `_log.md`.
+5. Make the hooks executable with `chmod +x .claude/hooks/*.sh`.
+6. Configure only the hooks and commands you intend to run.
 
-1. Copy this repo into your Obsidian vault (or any folder)
-2. Edit `CLAUDE.md` — replace `{{placeholders}}` with your info
-3. Edit `.claude/hooks/route-domain.sh` — customize keywords and domain paths
-4. Edit domain `_context.md` files with your actual state
-5. Make hooks executable: `chmod +x .claude/hooks/*.sh`
-6. Run `claude` from the vault root
+## Repository map
 
----
-
-## Architecture
-
-```
+```text
 subtlebodhi/
-├── CLAUDE.md              ← Master index (loaded every session)
-├── _RECENT.md             ← Recently modified files
+├── CLAUDE.md
+├── _RECENT.md
 ├── .claude/
-│   ├── settings.json      ← Hook configuration
+│   ├── settings.json
 │   ├── hooks/
-│   │   ├── route-domain.sh    ← UserPromptSubmit: keyword → context loading
-│   │   └── pretool-memory.sh  ← PreToolUse: semantic recall from vault
-│   └── commands/              ← 17 slash commands
-├── 00 - System/           ← Claude's working memory
-│   ├── Sessions/          ← Captured session outputs
-│   ├── Patterns/          ← Reusable solutions
-│   └── Reference/         ← Ground truth corrections
-├── 01 - Work/             ← Your work domain
-└── 02 - Personal/         ← Your personal domain
+│   │   ├── route-domain.sh
+│   │   └── pretool-memory.sh
+│   └── commands/
+├── 00 - System/
+│   ├── Sessions/
+│   ├── Patterns/
+│   └── Reference/
+├── 01 - Work/
+├── 02 - Personal/
+├── docs/
+└── scripts/setup.sh
 ```
 
-### How Domain Routing Works
+## Domain routing
 
-```
-You type: "review the sprint backlog"
-                    ↓
-route-domain.sh detects "sprint" keyword
-                    ↓
-Loads 01 - Work/_context.md into Claude's context
-                    ↓
-Claude responds with your work context loaded
+```text
+"review the sprint backlog"
+  -> route-domain.sh matches a work-domain keyword
+  -> the work _context.md is added to the prompt context
+  -> the response starts from current domain state
 ```
 
-### How Semantic Memory Works
+Keyword routing is deterministic and inspectable. It is also heuristic. Ambiguous terms can load the wrong domain, so high-risk work still needs explicit context and authorization checks.
 
-```
-Claude is thinking about your question
-                    ↓
-pretool-memory.sh fires before each Read/Glob/Grep
-                    ↓
-Extracts Claude's current thinking from transcript
-                    ↓
-Queries vault via QMD BM25 (~166ms)
-                    ↓
-Injects matching vault content as mid-stream context
-                    ↓
-Claude's next action is informed by relevant past sessions
+## Local memory
+
+```text
+assistant thinking block
+  -> PreToolUse hook reads a bounded transcript tail
+  -> QMD BM25 searches the local Markdown collection
+  -> optional SQLite FTS5 searches prior session text
+  -> relevant results are injected before a read-oriented tool
 ```
 
----
+The included hook is a reference copy. The maintained, tested extraction is [pretool-memory](https://github.com/b2bvic/pretool-memory).
 
-## Skills (Slash Commands)
+## Skills
 
-### Thinking Frameworks
+The command directory includes decision frameworks, deliberation, handoff and logging procedures, daily and weekly reviews, deep scraping, and web-to-Markdown conversion. Start with [the skill authoring guide](docs/skill-authoring.md) before adding new commands.
 
-| Command | Framework | Use When |
-|---------|-----------|----------|
-| `/consider-pareto` | 80/20 analysis | What matters most? |
-| `/consider-first-principles` | First principles | Rebuild from ground truth |
-| `/consider-inversion` | Munger's inversion | What could go wrong? |
-| `/consider-second-order` | Domino chain | What happens next? |
-| `/consider-5-whys` | Root cause analysis | Why does this keep breaking? |
-| `/consider-eisenhower` | Urgency/importance | What to do first? |
-| `/consider-occam` | Occam's Razor | Am I overthinking this? |
-| `/consider-one-thing` | Lead domino | What single action unlocks everything? |
-| `/consider-swot` | SWOT mapping | Strengths, weaknesses, opportunities, threats |
-| `/consider-10-10-10` | Time horizons | 10 min / 10 months / 10 years |
-| `/consider-opportunity-cost` | Tradeoff analysis | What am I giving up? |
-| `/consider-via-negativa` | Subtraction | What should I stop doing? |
+## Documentation
 
-### Utilities
+- [Vault as memory](docs/vault-as-memory.md)
+- [Context routing](docs/context-routing.md)
+- [Recursive language system](docs/recursive-language-system.md)
+- [Skill authoring](docs/skill-authoring.md)
 
-| Command | What It Does |
-|---------|--------------|
-| `/deliberate` | Multi-agent debate on a decision |
-| `/handoff` | Capture session state for next conversation |
-| `/log` | Update session log with current work |
-| `/morning` | Generate daily orientation dashboard |
-| `/review` | Generate weekly review with metrics |
-| `/scrape-deep` | Multi-tier URL fetching (WebFetch → Playwright → curl) |
-| `/web2md` | Convert any web page to clean markdown |
+## Non-guarantees
 
----
-
-## Optional: Semantic Memory with QMD
-
-The `pretool-memory.sh` hook uses [QMD](https://github.com/aethermonkey/qmd) for BM25 search. Without QMD, this hook exits silently — everything else works fine.
-
-To enable semantic memory:
-
-```bash
-# Install QMD (requires Bun)
-bun install -g qmd
-
-# Index your vault
-cd /path/to/your/vault
-qmd index
-
-# Set up periodic reindexing (macOS)
-# Add a launchd agent or cron job to run `qmd index` hourly
-```
-
----
-
-## Docs
-
-- [Vault-as-Memory Specification](docs/vault-as-memory.md) — The full architecture spec
-- [Context Routing Architecture](docs/context-routing.md) — How keyword routing works at scale
-- [Recursive Language System](docs/recursive-language-system.md) — The theory behind outputs-become-inputs
-- [Skill Authoring Guide](docs/skill-authoring.md) — How to write your own skills
-
----
+- The template does not ship a private corpus, QMD index, session ledger, credentials, or hosted service.
+- Local retrieval does not guarantee relevant or correct context.
+- Keyword routing does not enforce security boundaries.
+- Command files do not replace capability-level approval gates for sends, publishing, deletion, payments, or production writes.
+- The public Claude-first layout is a reference snapshot, not a promise that the current private system uses the same model, paths, counts, or automation surfaces.
 
 ## Origin
 
-This system runs in production. It manages:
-- 3,130+ vault files across 5 domains
-- Two concurrent jobs (real estate operations + AI consulting)
-- Client delivery pipeline with automated dispatch
-- Daily operations via VPS + Telegram bot integration
-- 73+ documented sessions with compounding context
-
-The repo is a genericized extract of the production system. Everything Victor-specific has been stripped. What remains is the architecture pattern — usable by anyone running Claude Code.
-
----
-
-## Adding Your Own Domains
-
-1. Create a folder: `03 - Learning/` (or whatever)
-2. Add `_context.md` and `_log.md` inside it
-3. Edit `.claude/hooks/route-domain.sh` — add a new keyword block
-4. Update the domain table in `CLAUDE.md`
-5. Run `qmd index` if using semantic memory
-
----
-
-## Adding Your Own Skills
-
-See [docs/skill-authoring.md](docs/skill-authoring.md) for the full guide.
-
-Quick version: create a `.md` file in `.claude/commands/` with YAML frontmatter and step-by-step instructions. Claude reads it when you invoke `/your-skill-name`.
-
----
+SubtleBodhi was extracted from a working private knowledge system and stripped of Victor-specific data. The useful artifact is the pattern: owned Markdown memory, bounded context, observable state, reusable procedures, and explicit side-effect gates.
 
 ## License
 
-MIT — do whatever you want with it.
+MIT
 
----
-
-## Author
-
-**Victor Valentine Romo** — [victorvalentineromo.com](https://victorvalentineromo.com) · [scalewithsearch.com](https://scalewithsearch.com)
-
-I build AI memory systems for people who run businesses. If you want this customized to your workflow: [get in touch](https://scalewithsearch.com).
+Built by [Victor Valentine Romo](https://victorvalentineromo.com).
