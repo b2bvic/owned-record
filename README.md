@@ -1,56 +1,25 @@
 # voice-calibration
 
-Claude Code hook that injects writing samples before file writes. When Claude is about to write or edit a file, this hook detects the genre (journal, correspondence, outreach, etc.) and injects recent examples of your actual writing as voice calibration context.
+A write hook that selects local writing samples by file genre.
 
-Built by [Victor Valentine Romo](https://victorvalentineromo.com) at [Scale With Search](https://scalewithsearch.com).
+## Principle cluster
 
-## What It Does
+This repository demonstrates **P11 (voice is a written standard)** because it limits processing to write and edit events, then maps the target path to a configured genre.
 
-When Claude writes to a path that matches a genre pattern:
+[Read the principles](https://victorvalentineromo.com/principles).
 
-1. Detects the genre from the file path (journal, correspondence, outreach, personal)
-2. Queries your vault for recent examples in the same genre
-3. Injects those examples as `additionalContext` before the write
-4. Throttles at 60 seconds per genre per session (doesn't flood)
-
-Claude's writing output is calibrated against your actual voice — not generic AI tone.
-
-## Install
+## Worked example
 
 ```bash
-cp voice-calibration.sh /path/to/project/.claude/hooks/
-chmod +x /path/to/project/.claude/hooks/voice-calibration.sh
+printf '%s\n' '{"tool_name":"Write","tool_input":{"file_path":"Journal.md"}}' | ./voice-calibration.sh
 ```
-
-Add to `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/voice-calibration.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Configuration
-
-Edit the genre detection patterns in the script to match your vault structure. Default patterns detect paths containing journal, correspondence, outreach, and personal keywords.
-
-## Requirements
-
-- [QMD](https://github.com/aethermonkey/qmd) for vault search
-- `jq` for JSON encoding
 
 ## License
 
-MIT
+MIT.
+
+## How this was built
+
+This 2026 README refit used model assistance.
+
+No claim is made about how the underlying code was authored or reviewed.
