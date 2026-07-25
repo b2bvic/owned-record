@@ -6,6 +6,8 @@ Strips navigation, ads, cookie banners, sidebars, and boilerplate. Preserves hea
 
 Built by [Victor Valentine Romo](https://victorvalentineromo.com) at [Scale With Search](https://scalewithsearch.com).
 
+Part of a larger system: this repository proves **P04 (synthesis starts from sources)** from the [Seventeen Principles](https://victorvalentineromo.com/principles). Clean, portable text in your own files is the precondition for everything downstream.
+
 ## Install
 
 ```bash
@@ -84,3 +86,7 @@ Content converted to clean markdown...
 ## License
 
 MIT
+
+## How this was built
+
+Specification and judgment: human. Implementation: AI models executing that specification under a build contract, with an adversarial audit before publish. The division of labor is the point; see [P07](https://victorvalentineromo.com/principles).
