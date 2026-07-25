@@ -2,6 +2,8 @@
 
 A public reference architecture for persistent agent memory, domain routing, and durable operating state inside an Obsidian or Markdown vault.
 
+Part of a larger system: this repository demonstrates **P05 (semantic order lowers retrieval cost)**, **P14 (authority is structured coverage over time)**, and **P16 (one person, one canon, many surfaces)** from the [Seventeen Principles](https://victorvalentineromo.com/principles).
+
 This repository is the architecture layer. It shows how prompts route to bounded domain context, how each domain carries current state and an activity trace, how local retrieval can add relevant memory before a tool call, and how reusable skills become filesystem artifacts instead of one-off prompt text.
 
 > **Repository boundary:** This is a genericized, Claude-first reference snapshot. It is not Victor's current private vault or an exact copy of the current provider/runtime stack. Private data, credentials, customer material, and deployment automation are omitted. The operating system has continued to evolve since this public extraction.
@@ -120,3 +122,7 @@ SubtleBodhi was extracted from a working private knowledge system and stripped o
 MIT
 
 Built by [Victor Valentine Romo](https://victorvalentineromo.com).
+
+## How this was built
+
+Specification and judgment: human. Implementation: AI models executing that specification under a build contract, with an adversarial audit before publish. The division of labor is the point; see [P07](https://victorvalentineromo.com/principles).

@@ -125,7 +125,7 @@ fi
 # If you log activity in dated files, surface a count here so
 # future sessions know what happened earlier today.
 #
-# Example: Telegram bot logs, voice transcripts, etc.
+# Example: messaging exports, voice transcripts, etc.
 # Uncomment and adapt the paths below:
 #
 # LOG_FILE="$VAULT_ROOT/Logs/$(date +%Y.%m.%d).md"
