@@ -14,9 +14,9 @@ If you arrived through `github.com/b2bvic/scale-with-search`, GitHub redirected 
 
 SubtleBodhi explains the system pattern. These smaller repositories expose bounded implementations that are faster to review:
 
-1. [pretool-memory](https://github.com/b2bvic/pretool-memory): transcript-tail retrieval, local BM25 and FTS5 lookup, throttling, hash deduplication, fail-open behavior, contract tests, and CI.
-2. [safe-api](https://github.com/b2bvic/safe-api): dry-run mutation controls, endpoint scope, duplicate callbacks, circuit breakers, incident artifacts, JSONL receipts, contract tests, and CI.
-3. [declip](https://github.com/b2bvic/declip): a local-first Apple Silicon video CLI with transcription, editing, captions, reframing, and export.
+1. [pretool-memory](https://github.com/b2bvic/pretool-memory): transcript-tail retrieval, local BM25 and FTS5 lookup, throttling, hash deduplication, and fail-open behavior.
+2. [safe-api](https://github.com/b2bvic/safe-api): dry-run mutation controls, endpoint scope, duplicate callbacks, circuit breakers, incident artifacts, and JSONL receipts.
+3. [declip](https://github.com/b2bvic/declip): a local-first Apple Silicon video CLI for transcription, filler removal, gap compression, EQ, and NLE/SRT export.
 4. [observer-protocol](https://github.com/b2bvic/observer-protocol): approval gates, correction history, drift detection, and observable agent loops.
 
 ## What this reference implements
