@@ -239,4 +239,4 @@ Anthropic's own product features (Projects, system prompts) are context routing 
 4. **Establish logging** — one log per domain, update after significant work
 5. **Add recency** — script or manual process to track recent changes
 
-The architecture compounds over time. Early sessions feel like overhead. Later sessions feel like the model already knows your work. That is the point. It does. You told it.
+The architecture compounds over time. Early sessions feel like overhead. Later sessions can recover the relevant record without another full explanation.
