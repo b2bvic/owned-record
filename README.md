@@ -10,11 +10,11 @@ This repository is the architecture layer. It shows how prompts route to bounded
 
 > **Repository boundary:** This is a genericized, Claude-first reference snapshot. It is not Victor's current private vault or an exact copy of the current provider/runtime stack. Private data, credentials, customer material, and deployment automation are omitted. The operating system has continued to evolve since this public extraction.
 
-If you arrived through `github.com/b2bvic/owned-record` or `github.com/b2bvic/subtlebodhi`, GitHub redirected you here: the repository is now named for what it is, an owned record. Older links still land on a useful technical surface.
+If you arrived through `github.com/b2bvic/scale-with-search` or `github.com/b2bvic/subtlebodhi`, GitHub redirected you here: the repository is now named for what it is, an owned record. Older links still land on a useful technical surface.
 
 ## Implementation proof path
 
-SubtleBodhi explains the system pattern. These smaller repositories expose bounded implementations that are faster to review:
+Owned Record explains the system pattern. These smaller repositories expose bounded implementations that are faster to review:
 
 1. [pretool-memory](https://github.com/b2bvic/pretool-memory): transcript-tail retrieval, local BM25 and FTS5 lookup, throttling, hash deduplication, and fail-open behavior.
 2. [safe-api](https://github.com/b2bvic/safe-api): dry-run mutation controls, endpoint scope, duplicate callbacks, circuit breakers, incident artifacts, and JSONL receipts.
@@ -32,8 +32,8 @@ SubtleBodhi explains the system pattern. These smaller repositories expose bound
 ## Quick start
 
 ```bash
-git clone https://github.com/b2bvic/subtlebodhi.git
-cd subtlebodhi
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record
 bash scripts/setup.sh
 claude
 ```
@@ -54,7 +54,7 @@ Review `scripts/setup.sh` before running it. Use a fresh clone or a backed-up va
 ## Repository map
 
 ```text
-subtlebodhi/
+owned-record/
 ├── CLAUDE.md
 ├── _RECENT.md
 ├── .claude/
@@ -117,7 +117,7 @@ The command directory includes decision frameworks, deliberation, handoff and lo
 
 ## Origin
 
-SubtleBodhi was extracted from a working private knowledge system and stripped of Victor-specific data. The useful artifact is the pattern: owned Markdown memory, bounded context, observable state, reusable procedures, and explicit side-effect gates.
+Owned Record was extracted from a working private knowledge system and stripped of Victor-specific data. The useful artifact is the pattern: owned Markdown memory, bounded context, observable state, reusable procedures, and explicit side-effect gates.
 
 ## License
 
