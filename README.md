@@ -1,4 +1,6 @@
-# SubtleBodhi
+# Owned Record
+
+Memory you can inspect, correct, export, and take with you.
 
 A public reference architecture for persistent agent memory, domain routing, and durable operating state inside an Obsidian or Markdown vault.
 
@@ -8,7 +10,7 @@ This repository is the architecture layer. It shows how prompts route to bounded
 
 > **Repository boundary:** This is a genericized, Claude-first reference snapshot. It is not Victor's current private vault or an exact copy of the current provider/runtime stack. Private data, credentials, customer material, and deployment automation are omitted. The operating system has continued to evolve since this public extraction.
 
-If you arrived through `github.com/b2bvic/scale-with-search`, GitHub redirected you here because the repository was renamed. The redirect remains intentional so older application and portfolio links still land on a useful technical surface.
+If you arrived through `github.com/b2bvic/owned-record` or `github.com/b2bvic/subtlebodhi`, GitHub redirected you here: the repository is now named for what it is, an owned record. Older links still land on a useful technical surface.
 
 ## Implementation proof path
 
