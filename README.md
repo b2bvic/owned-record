@@ -1,10 +1,23 @@
 # Owned Record
 
-Memory you can inspect, correct, export, and take with you.
+You can lose decisions and working context when they stay inside separate agent chats. Use Owned Record to keep domain state, activity logs, and reusable procedures in Markdown files you control.
 
-A public reference architecture for persistent agent memory, domain routing, and durable operating state inside an Obsidian or Markdown vault.
+Download the reference with Git:
 
-Part of a larger system: this repository demonstrates **P05 (semantic order lowers retrieval cost)**, **P14 (authority is structured coverage over time)**, and **P16 (one person, one canon, many surfaces)** from the [Seventeen Principles](https://victorvalentineromo.com/principles).
+```bash
+git clone https://github.com/b2bvic/owned-record.git
+```
+
+Sample output from `ls -a "owned-record/01 - Work"` (entries shown without terminal columns):
+
+```text
+.
+..
+_context.md
+_log.md
+```
+
+You get a reference vault. Follow the quick start to configure it for Claude Code.
 
 This repository is the architecture layer. It shows how prompts route to bounded domain context, how each domain carries current state and an activity trace, how local retrieval can add relevant memory before a tool call, and how reusable skills become filesystem artifacts instead of one-off prompt text.
 
@@ -127,4 +140,10 @@ Built by [Victor Valentine Romo](https://victorvalentineromo.com).
 
 ## How this was built
 
-Specification and judgment: human. Implementation: AI models executing that specification under a build contract, with an adversarial audit before publish. The division of labor is the point; see [P07](https://victorvalentineromo.com/principles).
+Specification and judgment: human. Implementation: AI models executing that specification under a build contract, with an adversarial audit before publish.
+
+## Principles
+
+Part of a larger system: this repository demonstrates **P05 (semantic order lowers retrieval cost)**, **P14 (authority is structured coverage over time)**, and **P16 (one person, one canon, many surfaces)** from the [Seventeen Principles](https://victorvalentineromo.com/principles).
+
+See **P07** for the division between human judgment and model implementation.
