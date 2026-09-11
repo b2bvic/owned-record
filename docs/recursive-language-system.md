@@ -58,7 +58,7 @@ A problem-solving approach works across three projects. The approach gets extrac
 System limitation encountered -> Solution built -> Solution documented -> Solution becomes default behavior
 ```
 
-Context routing was needed. A domain routing system was built. Now all sessions auto-load relevant context without manual specification. The architecture improved itself.
+Context routing was needed. A domain routing system was built. Sessions now receive a candidate path from prompt keywords. The selected `_context.md` is read as an explicit step. The architecture improved itself.
 
 ---
 
@@ -72,9 +72,9 @@ Every significant output should persist. If the LLM generates something valuable
 
 ### 2. Context Routing
 
-Don't load everything. Load what is relevant based on signal in the prompt.
+Don't load everything. Select a candidate path from signal in the prompt, then read that file.
 
-**Implementation:** Keywords trigger domain context loading. See [Context Routing](context-routing.md).
+**Implementation:** Keywords trigger a candidate path. See [Context Routing](context-routing.md).
 
 ### 3. Calibrated Voice
 
@@ -103,7 +103,7 @@ Not everything recurses. The human decides what persists, what archives, what ge
 | Problem | RLS Solution |
 |---------|--------------|
 | Amnesia between sessions | Vault persists context |
-| Repeating yourself | Decisions documented, loaded automatically |
+| Repeating yourself | Decisions documented, then read from the selected domain file |
 | Inconsistent voice | Calibration layer enforced at system level |
 | Starting from zero | Previous outputs bootstrap new sessions |
 
@@ -130,7 +130,7 @@ Not everything recurses. The human decides what persists, what archives, what ge
 ## The Compounding Effect
 
 Session 1: You explain your business, preferences, constraints.
-Session 10: Those are loaded automatically from vault.
+Session 10: Those are available in the vault and read when the domain pointer selects them.
 Session 50: Patterns extracted from sessions 1-49 inform approach.
 Session 100: The LLM knows this domain better than most human consultants because it operates on 100 sessions of curated, structured context.
 

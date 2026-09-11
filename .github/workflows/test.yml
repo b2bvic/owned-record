@@ -12,9 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Check shell syntax
         run: bash -n scripts/setup.sh .claude/hooks/*.sh tests/test_setup.sh
-      - name: Run setup smoke test
+      - name: Run routing tests
+        run: python3 tests/test_route_domain.py
+      - name: Run setup tests
         run: bash tests/test_setup.sh

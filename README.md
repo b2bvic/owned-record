@@ -19,7 +19,7 @@ _log.md
 
 You get a reference vault. Follow the quick start to configure it for Claude Code.
 
-This repository is the architecture layer. It shows how prompts route to bounded domain context, how each domain carries current state and an activity trace, how local retrieval can add relevant memory before a tool call, and how reusable skills become filesystem artifacts instead of one-off prompt text.
+This repository is the architecture layer. It shows how prompts route to bounded domain candidate paths, how each domain carries current state and an activity trace, how optional local retrieval can add relevant memory before a tool call, and how reusable skills become filesystem artifacts instead of one-off prompt text.
 
 > **Repository boundary:** This is a genericized, Claude-first reference snapshot. It is not Victor's current private vault or an exact copy of the current provider/runtime stack. Private data, credentials, customer material, and deployment automation are omitted. The operating system has continued to evolve since this public extraction.
 
@@ -36,9 +36,9 @@ Owned Record explains the system pattern. These smaller repositories expose boun
 
 ## What this reference implements
 
-- **Domain routing:** a `UserPromptSubmit` hook maps prompt keywords to a bounded `_context.md` file.
+- **Domain routing:** a `UserPromptSubmit` hook maps prompt keywords to candidate `_context.md` paths. It does not inject file bodies.
 - **Persistent state:** each domain carries `_context.md` for current state and `_log.md` for durable activity history.
-- **Local recall:** an optional `PreToolUse` hook searches a local Markdown index and session ledger before read-oriented tools.
+- **Local recall:** an optional `PreToolUse` hook searches a local Markdown index and session ledger before read-oriented tools. It is opt-in.
 - **Reusable skills:** command files hold repeatable procedures, decision frameworks, session handoffs, reviews, and utilities.
 - **Ground-truth corrections:** a reference surface records durable corrections that future sessions can load.
 
@@ -51,7 +51,7 @@ bash scripts/setup.sh
 claude
 ```
 
-The setup script asks for a name, project name, and domain structure. It replaces template placeholders, creates domain folders, updates the domain table and routing hook, makes hooks executable, and leaves the configured vault in the cloned directory.
+The setup script asks for a name, project name, and domain structure. It replaces template placeholders when they are still present, creates missing domain folders, and merges `.agent-oversight/domains.json`. It does not rewrite hook scripts. It does not overwrite existing custom domain config or `_context.md` files.
 
 Review `scripts/setup.sh` before running it. Use a fresh clone or a backed-up vault because the script edits local template files.
 
@@ -59,10 +59,10 @@ Review `scripts/setup.sh` before running it. Use a fresh clone or a backed-up va
 
 1. Copy the reference into an Obsidian vault or Markdown directory.
 2. Replace the placeholders in `CLAUDE.md`.
-3. Customize the keyword and path rules in `.claude/hooks/route-domain.sh`.
+3. Customize keyword and path rules in `.agent-oversight/domains.json`.
 4. Put current state in each domain's `_context.md` and append durable activity to `_log.md`.
-5. Make the hooks executable with `chmod +x .claude/hooks/*.sh`.
-6. Configure only the hooks and commands you intend to run.
+5. Ensure `.claude/hooks/route-domain.sh` is executable. Do not chmod every file in `.claude/hooks/` unless you intend to enable those scripts.
+6. Keep default settings limited to pointer routing. Add `pretool-memory.sh` to `PreToolUse` only if you want local recall.
 
 ## Repository map
 
@@ -70,10 +70,13 @@ Review `scripts/setup.sh` before running it. Use a fresh clone or a backed-up va
 owned-record/
 ├── CLAUDE.md
 ├── _RECENT.md
+├── .agent-oversight/
+│   └── domains.json
 ├── .claude/
 │   ├── settings.json
 │   ├── hooks/
 │   │   ├── route-domain.sh
+│   │   ├── route_domain.py
 │   │   └── pretool-memory.sh
 │   └── commands/
 ├── 00 - System/
@@ -86,16 +89,21 @@ owned-record/
 └── scripts/setup.sh
 ```
 
+The shared `domains.json` format uses domain directory paths, such as `01 - Work`.
+The hook and the [vault skills](https://github.com/b2bvic/skills) use the same map.
+You select the domain before reading its `_context.md`.
+
 ## Domain routing
 
 ```text
 "review the sprint backlog"
   -> route-domain.sh matches a work-domain keyword
-  -> the work _context.md is added to the prompt context
-  -> the response starts from current domain state
+  -> the hook emits 01 - Work/_context.md as a candidate path
+  -> context_loaded is false
+  -> the model or user reads that file if the domain is correct
 ```
 
-Keyword routing is deterministic and inspectable. It is also heuristic. Ambiguous terms can load the wrong domain, so high-risk work still needs explicit context and authorization checks.
+Keyword routing is deterministic and inspectable. It is also heuristic. Ambiguous prompts return more than one candidate. Unmatched prompts return none. The hook never reads `_context.md` bodies. High-risk work still needs explicit context and authorization checks.
 
 ## Local memory
 
@@ -107,7 +115,13 @@ assistant thinking block
   -> relevant results are injected before a read-oriented tool
 ```
 
-The included hook is a reference copy. The maintained, tested extraction is [pretool-memory](https://github.com/b2bvic/pretool-memory).
+The included hook is a reference copy and is not enabled in default `.claude/settings.json`. Add it to `PreToolUse` if you want that behavior. Quote the command so project paths with spaces work:
+
+```json
+"command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/pretool-memory.sh\""
+```
+
+The maintained, tested extraction is [pretool-memory](https://github.com/b2bvic/pretool-memory).
 
 ## Skills
 
@@ -120,11 +134,27 @@ The command directory includes decision frameworks, deliberation, handoff and lo
 - [Recursive language system](docs/recursive-language-system.md)
 - [Skill authoring](docs/skill-authoring.md)
 
+## Migration and default changes
+
+Older copies of this template injected `_context.md` bodies from `route-domain.sh` and stored keywords in that shell script. Default settings also enabled `PreToolUse` memory and a broad permission allow-list.
+
+Current defaults:
+
+- Domain map: `.agent-oversight/domains.json` with `{domains:[{name,path,keywords}]}`.
+- Hook output: candidate paths only. `context_loaded` is always `false`.
+- Status values: `matched`, `ambiguous`, `unmatched`, `error`.
+- Settings: `UserPromptSubmit` pointer routing only. Hook commands are quoted for paths with spaces.
+- `pretool-memory.sh` remains in the repo. It is opt-in.
+- Template settings no longer ship Write, Edit, WebFetch, or similar allow-list entries.
+- Setup merges `domains.json`. It does not insert shell into the hook. A second run keeps custom config and existing `_context.md` files.
+
+To migrate an existing vault, copy keywords from the old hook into `domains.json`. Remove any `cat` of `_context.md` from hook output. If you still want PreToolUse memory or extra permissions, add them locally.
+
 ## Non-guarantees
 
 - The template does not ship a private corpus, QMD index, session ledger, credentials, or hosted service.
 - Local retrieval does not guarantee relevant or correct context.
-- Keyword routing does not enforce security boundaries.
+- Keyword routing does not enforce security boundaries. A candidate path is not loaded context.
 - Command files do not replace capability-level approval gates for sends, publishing, deletion, payments, or production writes.
 - The public Claude-first layout is a reference snapshot, not a promise that the current private system uses the same model, paths, counts, or automation surfaces.
 

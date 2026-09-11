@@ -67,7 +67,7 @@ Keep this file between 200-400 lines. Dense and scannable.
 
 ### 2. Domain _context.md — Regional Memory Indexes
 
-Each domain has its own index. Loaded when keywords match. They tell the LLM what to know about a specific region:
+Each domain has its own index. The routing hook points at the matching file. The model or user reads it after selection. The files tell the LLM what to know about a specific region:
 
 - Domain purpose and scope
 - Active projects/entities
@@ -130,7 +130,7 @@ CLAUDE.md contains a routing table:
 | **Research** | `03 - Research/_context.md` | paper, hypothesis, dataset, experiment |
 ```
 
-The LLM matches keywords in your prompt to domains, then loads the relevant `_context.md`. You say "client," it finds the client knowledge.
+The hook matches keywords in your prompt to domains, then emits the candidate `_context.md` path. `context_loaded` stays false. You say "client," it names the client file. The model or user reads that file if the domain is correct.
 
 ---
 
@@ -222,7 +222,7 @@ Today: YYYY.MM.DD
 **[DOMAIN-2]:** [Current status, blockers, active work]
 
 ## HOW
-1. Route first — match keywords to domain, READ that _context.md
+1. Route first — use the hook pointer, then READ the selected _context.md
 2. Check recency — READ _RECENT.md for recently modified files
 3. Update state — after significant work, update NOW section
 
@@ -314,7 +314,7 @@ Knowledge bases with cloud sync are fragile to bulk file operations. Moving/rena
 ## Why This Works
 
 1. **Searchable memory** — every file has an address, keywords trigger retrieval
-2. **Progressive disclosure** — context loads on-demand, not all at once
+2. **Progressive disclosure** — a candidate path is selected on-demand, then that file is read
 3. **Persistent state** — NOW section and logs carry information forward
 4. **Two-way memory** — the LLM reads from and writes to the vault
 5. **Self-indexing** — context files explain the vault to the LLM

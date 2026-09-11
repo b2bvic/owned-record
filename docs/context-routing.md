@@ -1,6 +1,6 @@
 # Context Routing Architecture
 
-> Enterprise infrastructure teams and solo practitioners independently converge on the same pattern. Context routing is not overengineering — it is the minimum viable structure for quality LLM output.
+> Context routing selects which domain file is relevant for a prompt. The hook emits a candidate path. Retrieval of that file is a separate step.
 
 ---
 
@@ -15,17 +15,23 @@ Context routing solves the relevance problem: what context should be active for 
 | Load everything | Context window bloat, irrelevant noise, diluted attention |
 | Load nothing | Generic responses, no domain specificity |
 | Manual loading | User overhead, inconsistent, error-prone |
-| **Keyword routing** | **Automatic, relevant, no manual intervention** |
+| **Keyword routing** | Emits a candidate path. The model or user reads the selected `_context.md`. |
 
 ---
 
 ## Architecture Layers
 
-### Layer 1: Router (CLAUDE.md)
+### Layer 1: Router (CLAUDE.md + domains.json)
 
-Central configuration file. Contains:
+Human-readable map in `CLAUDE.md`. Machine map in `.agent-oversight/domains.json`. Format:
 
-1. Keyword-to-domain mapping
+```json
+{"domains":[{"name":"Work","path":"01 - Work","keywords":["sprint"]}]}
+```
+
+The `UserPromptSubmit` hook reads the JSON map and emits candidate paths. It does not load file bodies. `CLAUDE.md` still contains:
+
+1. Keyword-to-domain mapping for humans
 2. Context file paths
 3. Global defaults (voice, rules, state)
 
@@ -39,7 +45,7 @@ Central configuration file. Contains:
 | **Finance** | `03 - Finance/_context.md` | budget, invoice, forecast, P&L |
 ```
 
-The router is the first file read. It determines what else gets loaded.
+The router names the candidate file. The model or user reads that file after selection.
 
 ### Layer 2: Context Files (_context.md)
 
@@ -112,8 +118,9 @@ Create your central configuration file:
 
 ## How to Route
 1. Match prompt keywords to domain
-2. Read that domain's _context.md
-3. Only load deeper if stuck
+2. Emit the candidate path. Do not inject the file body.
+3. Read that domain's `_context.md` only after selection
+4. Only load deeper if stuck
 ```
 
 ### Step 3: Create Context Files
@@ -156,13 +163,17 @@ Create `_log.md` for each domain. Entry format:
 ### Keyword Extraction
 
 ```python
+import re
+
 def extract_domains(prompt: str, domain_map: dict) -> list[str]:
-    """Match prompt keywords to domains."""
-    prompt_lower = prompt.lower()
+    """Match prompt keywords to domains using word boundaries."""
     matched = []
     for domain, keywords in domain_map.items():
-        if any(kw in prompt_lower for kw in keywords):
-            matched.append(domain)
+        for keyword in keywords:
+            pattern = r"(?<![A-Za-z0-9_])" + re.escape(keyword) + r"(?![A-Za-z0-9_])"
+            if re.search(pattern, prompt, flags=re.IGNORECASE):
+                matched.append(domain)
+                break
     return matched
 
 # Example domain map
@@ -173,24 +184,29 @@ DOMAINS = {
 }
 ```
 
-### Context Loading
+### Candidate pointers
+
+The hook emits paths. It does not open `_context.md`.
 
 ```python
-def load_context(domains: list[str], base_path: str) -> str:
-    """Load _context.md files for matched domains."""
-    context_paths = {
-        "engineering": "01 - Engineering/_context.md",
-        "marketing": "02 - Marketing/_context.md",
-        "finance": "03 - Finance/_context.md",
+def emit_candidates(domains: list[str], context_paths: dict) -> dict:
+    """Return candidate paths. Do not read file bodies."""
+    candidates = [
+        {"name": domain, "path": context_paths[domain]}
+        for domain in domains
+        if domain in context_paths
+    ]
+    if not candidates:
+        status = "unmatched"
+    elif len(candidates) > 1:
+        status = "ambiguous"
+    else:
+        status = "matched"
+    return {
+        "status": status,
+        "context_loaded": False,
+        "candidates": candidates,
     }
-
-    loaded = []
-    for domain in domains:
-        path = f"{base_path}/{context_paths[domain]}"
-        with open(path, 'r') as f:
-            loaded.append(f"# {domain.upper()} CONTEXT\n{f.read()}")
-
-    return "\n\n---\n\n".join(loaded)
 ```
 
 ---
@@ -207,7 +223,7 @@ Fails because attention dilutes. The model weighs irrelevant context against rel
 
 Expecting the model to figure out which domain applies from the prompt alone.
 
-Fails on ambiguity. "Help me with the report" could match multiple domains. Wrong context loads, or nothing loads.
+Fails on ambiguity. "Help me with the report" could match multiple domains. The hook then returns `ambiguous` or `unmatched`. It does not guess a body to inject.
 
 ### Stale State
 
@@ -225,7 +241,7 @@ Noise accumulates. Finding relevant history requires reading everything. The log
 
 ## Convergence
 
-Multiple teams working independently arrive at this architecture. Enterprise organizations building LLM tooling and individual practitioners structuring personal knowledge bases both converge on keyword-triggered context loading. The pattern is structural, not incidental — the problem of "what context should the model see?" has a narrow solution space, and most serious implementations land in the same region.
+Multiple teams working independently arrive at this architecture. Enterprise organizations building LLM tooling and individual practitioners structuring personal knowledge bases both converge on keyword-triggered candidate selection. The pattern is structural, not incidental. The problem of "which file should the model read next?" has a narrow solution space, and most serious implementations land in the same region.
 
 Anthropic's own product features (Projects, system prompts) are context routing with different names. The pattern is worth understanding before the interface abstracts it away.
 
@@ -240,3 +256,11 @@ Anthropic's own product features (Projects, system prompts) are context routing 
 5. **Add recency** — script or manual process to track recent changes
 
 The architecture compounds over time. Early sessions feel like overhead. Later sessions can recover the relevant record without another full explanation.
+
+---
+
+## Migration from body injection
+
+Older routing hooks grepped keywords in shell and concatenated `_context.md` into `additionalContext`. That is no longer the default.
+
+Move the domain map to `.agent-oversight/domains.json`. Keep the hook as a pointer emitter. Selected domain retrieval stays a model or user `Read`. Default `.claude/settings.json` enables only quoted `UserPromptSubmit` routing. `pretool-memory.sh` is opt-in. Template permission allow-lists are omitted.

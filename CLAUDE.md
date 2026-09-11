@@ -17,7 +17,7 @@
 | **Work** | `01 - Work/_context.md` | project, deadline, meeting, standup, sprint |
 | **Personal** | `02 - Personal/_context.md` | family, health, budget, journal, home |
 
-> Add more domains by editing this table AND `.claude/hooks/route-domain.sh`.
+> Add more domains by editing this table AND `.agent-oversight/domains.json`.
 
 ---
 
@@ -39,7 +39,7 @@ Update this section as your situation evolves. Claude reads it every session.
 
 **Work:** (current work priorities)
 **Personal:** (current personal state)
-**System:** Hooks active (domain routing + semantic memory). QMD indexed.
+**System:** Pointer routing hook active. Optional PreToolUse memory is opt-in. QMD indexed if installed.
 
 ---
 
@@ -75,7 +75,7 @@ Then read the relevant ones. Synthesize after.
 
 ### Standard Operation
 
-1. **Route first** — Match prompt keywords to domain, read that `_context.md`
+1. **Route first** — Use the hook pointer. If status is `matched`, read that candidate `_context.md`. If `ambiguous`, pick one path or ask. Do not assume the file body was injected.
 2. **Search with QMD** — Before Glob/Grep
 3. **Read actual files** — Don't rely on summaries
 4. **Update state** — After significant work, update the NOW section
@@ -98,6 +98,7 @@ Then read the relevant ones. Synthesize after.
 | File | Purpose |
 |------|---------|
 | `_RECENT.md` | Files modified in last 24h |
+| `.agent-oversight/domains.json` | Keyword-to-candidate-path map |
 | `{domain}/_context.md` | Domain-specific rules and state |
 | `{domain}/_log.md` | Domain activity log |
 | `00 - System/Sessions/` | Valuable session outputs |
@@ -147,9 +148,11 @@ Commands in `.claude/commands/` — invoke with `/command-name`.
 {{PROJECT_NAME}}/
 ├── CLAUDE.md              ← You are here
 ├── _RECENT.md             ← Recently modified files
+├── .agent-oversight/
+│   └── domains.json       ← Keyword-to-candidate-path map
 ├── .claude/
-│   ├── settings.json      ← Hook configuration
-│   ├── hooks/             ← Domain routing + semantic memory
+│   ├── settings.json      ← Pointer-routing hook configuration
+│   ├── hooks/             ← Domain routing; optional memory hook
 │   └── commands/          ← Slash commands (skills)
 ├── 00 - System/           ← Claude's operational state
 │   ├── _context.md
@@ -166,4 +169,4 @@ Commands in `.claude/commands/` — invoke with `/command-name`.
 ```
 
 > Add more domain folders as needed. Each domain needs `_context.md` and `_log.md`.
-> Update `route-domain.sh` with keywords for each new domain.
+> Update `.agent-oversight/domains.json` with keywords for each new domain.
