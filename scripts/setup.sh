@@ -1,21 +1,28 @@
 #!/bin/bash
-# SubtleBodhi vault setup script
-# Creates a personalized Claude Code vault from this template.
+# Owned Record vault setup.
+# Personalizes CLAUDE.md and writes .agent-oversight/domains.json.
+# Does not rewrite hook scripts. Does not overwrite existing custom state.
 #
 # Usage: ./scripts/setup.sh
 # Or:    bash scripts/setup.sh
 
-set -e
+set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+SETUP_CONFIG="$REPO_ROOT/scripts/setup_config.py"
 
 echo ""
-echo "  SubtleBodhi Vault-as-Memory Setup"
+echo "  Owned Record vault setup"
 echo "  ==========================================="
 echo ""
-echo "  This script personalizes your CLAUDE.md and creates"
-echo "  domain folders with _context.md files."
+echo "  This script personalizes CLAUDE.md and writes"
+echo "  domain folders plus .agent-oversight/domains.json."
 echo ""
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "  python3 is required."
+  exit 1
+fi
 
 # ─── Gather Info ────────────────────────────────────────────
 
@@ -33,9 +40,17 @@ echo "  How many domains? (The template includes Work + Personal.)"
 echo "  Enter 0 to keep defaults, or a number to add more."
 read -rp "  Additional domains (0-8): " DOMAIN_COUNT
 DOMAIN_COUNT=${DOMAIN_COUNT:-0}
+case "$DOMAIN_COUNT" in
+  ''|*[!0-9]*) DOMAIN_COUNT=0 ;;
+esac
+if [ "$DOMAIN_COUNT" -gt 8 ]; then
+  DOMAIN_COUNT=8
+fi
 
-EXTRA_DOMAINS=()
-EXTRA_KEYWORDS=()
+EXTRAS_FILE="$(mktemp)"
+cleanup() { rm -f "$EXTRAS_FILE"; }
+trap cleanup EXIT
+printf '%s\n' '[]' > "$EXTRAS_FILE"
 
 for (( i=1; i<=DOMAIN_COUNT; i++ )); do
   echo ""
@@ -43,127 +58,43 @@ for (( i=1; i<=DOMAIN_COUNT; i++ )); do
   [ -z "$DNAME" ] && continue
   read -rp "  Domain $i keywords (comma-separated, e.g., 'client,invoice,proposal'): " DKEYS
   [ -z "$DKEYS" ] && DKEYS="$DNAME"
-  EXTRA_DOMAINS+=("$DNAME")
-  EXTRA_KEYWORDS+=("$DKEYS")
+  python3 - "$EXTRAS_FILE" "$DNAME" "$DKEYS" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+name = sys.argv[2]
+keywords = sys.argv[3]
+data = json.loads(path.read_text(encoding="utf-8"))
+data.append({"name": name, "keywords": keywords})
+path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+PY
 done
 
 echo ""
 echo "  ─── Creating your vault ───"
 echo ""
 
-# ─── Personalize CLAUDE.md ──────────────────────────────────
+python3 "$SETUP_CONFIG" \
+  --root "$REPO_ROOT" \
+  --name "$USER_NAME" \
+  --project "$PROJECT_NAME" \
+  --description "$USER_DESC" \
+  --extras "$EXTRAS_FILE"
 
-CLAUDE_MD="$REPO_ROOT/CLAUDE.md"
-
-if [ -f "$CLAUDE_MD" ]; then
-  sed -i.bak "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" "$CLAUDE_MD"
-  sed -i.bak "s/{{YOUR_NAME}}/$USER_NAME/g" "$CLAUDE_MD"
-  sed -i.bak "s/{{ONE_LINE_DESCRIPTION}}/$USER_DESC/g" "$CLAUDE_MD"
-  rm -f "${CLAUDE_MD}.bak"
-  echo "  ✓ CLAUDE.md personalized"
+if [ -f "$REPO_ROOT/CLAUDE.md" ]; then
+  echo "  ✓ CLAUDE.md checked (placeholders replaced only when still present)"
+fi
+if [ -f "$REPO_ROOT/.agent-oversight/domains.json" ]; then
+  echo "  ✓ .agent-oversight/domains.json merged (existing custom domains kept)"
 fi
 
-# ─── Create extra domain folders ────────────────────────────
-
-DOMAIN_NUM=3  # Start after 00-System, 01-Work, 02-Personal
-ROUTE_ADDITIONS=""
-
-for (( i=0; i<${#EXTRA_DOMAINS[@]}; i++ )); do
-  DNAME="${EXTRA_DOMAINS[$i]}"
-  DKEYS="${EXTRA_KEYWORDS[$i]}"
-  DNUM=$(printf "%02d" $DOMAIN_NUM)
-  DFOLDER="$REPO_ROOT/${DNUM} - ${DNAME}"
-
-  mkdir -p "$DFOLDER"
-
-  # Create _context.md
-  cat > "$DFOLDER/_context.md" << CTXEOF
-# ${DNAME} Context
-
-last_verified:: $(date +%Y.%m.%d)
-
-Your ${DNAME} domain. Customize this file with current state and priorities.
-
-## Current State
-
-- (Add your current ${DNAME} priorities here)
-CTXEOF
-
-  # Create _log.md
-  cat > "$DFOLDER/_log.md" << LOGEOF
-# ${DNAME} Log
-
-Activity log for the ${DNAME} domain.
-
----
-
-(Entries will appear here as you work.)
-LOGEOF
-
-  echo "  ✓ Created ${DNUM} - ${DNAME}/ with _context.md and _log.md"
-
-  # Build route-domain.sh addition
-  # Convert comma-separated keywords to grep pattern
-  GREP_PATTERN=$(echo "$DKEYS" | tr ',' '|' | tr -d ' ')
-
-  ROUTE_ADDITIONS+="
-# DOMAIN: ${DNAME}
-if echo \"\$PROMPT_LOWER\" | grep -qiE \"${GREP_PATTERN}\"; then
-  CONTEXT_PATH=\"\$VAULT_ROOT/${DNUM} - ${DNAME}/_context.md\"
-  if [ -f \"\$CONTEXT_PATH\" ]; then
-    STALE_WARN=\$(check_staleness \"\$CONTEXT_PATH\" \"${DNAME}\")
-    CONTEXT+=\"\${STALE_WARN}\"
-    CONTEXT+=\"# ${DNAME} Context\"
-    CONTEXT+=\$'\\n\\n'
-    CONTEXT+=\$(cat \"\$CONTEXT_PATH\")
-    CONTEXT+=\$'\\n\\n---\\n\\n'
-    DOMAINS_LOADED+=\"${DNAME} \"
-  fi
+ROUTE_HOOK="$REPO_ROOT/.claude/hooks/route-domain.sh"
+if [ -f "$ROUTE_HOOK" ]; then
+  chmod u+x "$ROUTE_HOOK"
+  echo "  ✓ route-domain.sh is executable"
 fi
-"
-
-  # Add to CLAUDE.md domain table
-  if [ -f "$CLAUDE_MD" ]; then
-    # Insert before the "Add more domains" note
-    sed -i.bak "/^> Add more domains/i\\
-| **${DNAME}** | \`${DNUM} - ${DNAME}/_context.md\` | ${DKEYS} |" "$CLAUDE_MD"
-    rm -f "${CLAUDE_MD}.bak"
-  fi
-
-  DOMAIN_NUM=$((DOMAIN_NUM + 1))
-done
-
-# ─── Inject extra domains into route-domain.sh ──────────────
-
-if [ -n "$ROUTE_ADDITIONS" ]; then
-  HOOK_FILE="$REPO_ROOT/.claude/hooks/route-domain.sh"
-  if [ -f "$HOOK_FILE" ]; then
-    # Insert before the "ADD MORE DOMAINS HERE" comment
-    TEMP_FILE=$(mktemp)
-    ADDITIONS_FILE=$(mktemp)
-    printf '%s\n' "$ROUTE_ADDITIONS" > "$ADDITIONS_FILE"
-    awk -v additions_file="$ADDITIONS_FILE" '
-      /^# ADD MORE DOMAINS HERE/ {
-        while ((getline line < additions_file) > 0) print line
-        close(additions_file)
-      }
-      { print }
-    ' "$HOOK_FILE" > "$TEMP_FILE"
-    rm -f "$ADDITIONS_FILE"
-
-    # Also uncomment the commented domain example since we have real ones now
-    mv "$TEMP_FILE" "$HOOK_FILE"
-    chmod +x "$HOOK_FILE"
-    echo "  ✓ route-domain.sh updated with ${#EXTRA_DOMAINS[@]} domain(s)"
-  fi
-fi
-
-# ─── Make hooks executable ──────────────────────────────────
-
-chmod +x "$REPO_ROOT/.claude/hooks/"*.sh 2>/dev/null
-echo "  ✓ Hooks made executable"
-
-# ─── Done ───────────────────────────────────────────────────
 
 echo ""
 echo "  ─── Setup complete ───"
@@ -173,11 +104,12 @@ echo ""
 echo "  1. cd $(basename "$REPO_ROOT")"
 echo "  2. Review CLAUDE.md — update the NOW section with your current state"
 echo "  3. Edit domain _context.md files with your actual priorities"
-echo "  4. Run: claude"
+echo "  4. Add domains in .agent-oversight/domains.json, not in the hook script"
+echo "  5. Run: claude"
 echo ""
 echo "  Optional:"
-echo "  - Install QMD (https://github.com/aethermonkey/qmd) for semantic memory"
-echo "  - Run 'qmd index' to index your vault for the PreToolUse hook"
+echo "  - Opt in to PreToolUse memory by adding pretool-memory.sh in .claude/settings.json"
+echo "  - Install QMD (https://github.com/aethermonkey/qmd) if you enable that hook"
 echo ""
 echo "  For the full architecture explanation, see docs/"
 echo ""

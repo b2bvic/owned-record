@@ -1,0 +1,14 @@
+{
+  "domains": [
+    {
+      "name": "Work",
+      "path": "01 - Work",
+      "keywords": ["project", "deadline", "meeting", "standup", "sprint"]
+    },
+    {
+      "name": "Personal",
+      "path": "02 - Personal",
+      "keywords": ["family", "health", "budget", "journal", "home"]
+    }
+  ]
+}
