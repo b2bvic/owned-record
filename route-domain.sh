@@ -11,11 +11,24 @@
 # Architecture:
 #   User types prompt → this hook fires → keyword match → load _context.md → inject
 #
-# Reads CLAUDE_USER_PROMPT from Claude Code hook environment.
+# Reads the UserPromptSubmit JSON prompt from stdin.
+# CLAUDE_USER_PROMPT remains an explicit override for offline examples.
 # Outputs JSON with additionalContext for injection.
 
 VAULT_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
-USER_PROMPT="$CLAUDE_USER_PROMPT"
+if [[ -n "${CLAUDE_USER_PROMPT+x}" ]]; then
+  USER_PROMPT="$CLAUDE_USER_PROMPT"
+else
+  if ! command -v jq &> /dev/null; then
+    echo "route-domain requires jq" >&2
+    exit 1
+  fi
+  HOOK_INPUT=$(cat)
+  USER_PROMPT=$(printf '%s' "$HOOK_INPUT" | jq -er '
+    if type == "object" and (.prompt | type) == "string" then .prompt
+    else error("Hook input must contain a string prompt") end
+  ') || exit 1
+fi
 
 # Convert to lowercase for matching
 PROMPT_LOWER=$(echo "$USER_PROMPT" | tr '[:upper:]' '[:lower:]')
@@ -39,7 +52,6 @@ date_to_epoch() {
 # Returns warning text if last_verified:: is >2 days stale
 check_staleness() {
   local ctx_file="$1"
-  local domain="$2"
   [ -f "$ctx_file" ] || return
 
   local last_verified
