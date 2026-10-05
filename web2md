@@ -75,6 +75,8 @@ def clean_html(html: str) -> BeautifulSoup:
 
     # Remove elements with boilerplate class/id patterns
     for el in soup.find_all(True):
+        if el.attrs is None:
+            continue
         classes = " ".join(el.get("class", []))
         el_id = el.get("id", "")
         if BOILERPLATE_PATTERNS.search(classes) or BOILERPLATE_PATTERNS.search(el_id):
@@ -107,7 +109,6 @@ def html_to_markdown(content: BeautifulSoup) -> str:
         heading_style="atx",
         bullets="-",
         code_language_callback=lambda el: el.get("class", [""])[0].replace("language-", "") if el.get("class") else "",
-        strip=["img"],  # Strip images by default — they'd be broken relative URLs
         convert=["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li",
                  "table", "thead", "tbody", "tr", "td", "th",
                  "blockquote", "pre", "code", "a", "strong", "em", "br", "hr"],
