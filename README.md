@@ -1,92 +1,58 @@
-# web2md
+# Web page to Markdown CLI: web2md
 
-Convert any web page to clean markdown. Single command, zero install.
+Web2md converts returned HTML into Markdown for researchers and content teams. Use source-attributed files to retain readable inputs for records and retrieval.
 
-Strips navigation, ads, cookie banners, sidebars, and boilerplate. Preserves heading hierarchy, lists, tables, links, blockquotes, and code blocks.
-
-Built by [Victor Valentine Romo](https://victorvalentineromo.com) at [Scale With Search](https://scalewithsearch.com).
-
-Part of a larger system: this repository proves **P04 (synthesis starts from sources)** from the [Seventeen Principles](https://victorvalentineromo.com/principles). Clean, portable text in your own files is the precondition for everything downstream.
+[Project page](https://scalewithsearch.com/code/web2md)
 
 ## Install
 
-```bash
-curl -o ~/.local/bin/web2md https://raw.githubusercontent.com/b2bvic/web2md/main/web2md
-chmod +x ~/.local/bin/web2md
-```
-
-Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/). Dependencies resolve automatically on first run.
-
-## Usage
+Requirements: Python 3.11 or later.
 
 ```bash
-# Convert page to markdown file
-web2md https://example.com/blog-post
-
-# Specify output path
-web2md https://example.com/page -o article.md
-
-# Print to stdout (pipe to other tools)
-web2md https://example.com/page --stdout
-
-# Pipe to clipboard
-web2md https://example.com/page --stdout | pbcopy
+gh repo clone b2bvic/web2md
+cd web2md
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
 ```
 
-## Output
+## Quick start
 
-```markdown
-source:: https://example.com/blog-post
-fetched:: 2026.03.25
-
-# Blog Post Title
-
-Content converted to clean markdown...
-
-*Source: [example.com](https://example.com/blog-post) — fetched 2026.03.25*
+```bash
+.venv/bin/python - <<'PY'
+import runpy
+tool = runpy.run_path('web2md')
+print(tool["html_to_markdown"](tool["clean_html"]("<h1>Demo</h1><p>Portable text.</p>")))
+PY
 ```
 
-## What Gets Stripped
+This example uses synthetic input without fetching a website.
 
-- Navigation menus and headers
-- Footer content
-- Cookie consent banners
-- Ad containers and sponsored content
-- Social sharing widgets
-- Comment sections (Disqus, etc.)
-- Newsletter signup forms
-- Related post blocks
-- Sidebar widgets
-- Empty elements
-- HTML comments
+## How it works
 
-## What Gets Preserved
+- Fetch HTML with a bounded request timeout.
+- Remove configured boilerplate tags and matching elements.
+- Write Markdown with the source URL and fetch date.
 
-- Heading hierarchy (H1 through H6)
-- Paragraphs
-- Ordered and unordered lists
-- Tables
-- Blockquotes
-- Code blocks with language tags
-- Links (as markdown `[text](url)`)
-- Bold and italic text
-- Horizontal rules
+## Limits
 
-## How It Works
+- The tool does not execute JavaScript or bypass access controls.
+- Boilerplate matching can remove useful content.
+- Images are omitted, and relative links are not rewritten to absolute URLs.
 
-1. Fetch page with proper headers (User-Agent, Accept)
-2. Parse HTML with lxml (fast, fault-tolerant)
-3. Strip boilerplate by tag name (script, style, nav, footer, aside)
-4. Strip boilerplate by class/ID pattern matching (40+ patterns)
-5. Find main content area (article > main > [role=main] > body)
-6. Convert to markdown via markdownify
-7. Clean up whitespace, fix heading spacing
-8. Add source frontmatter
+## Related repositories
+
+- [twitter-bookmarks](https://github.com/b2bvic/twitter-bookmarks)
+- [sws-skills](https://github.com/b2bvic/sws-skills)
+
+## Development
+
+```bash
+.venv/bin/python -m pytest -q
+.venv/bin/python -m ruff check --select E9,F63,F7,F82 web2md tests
+```
+
+CI runs the portable tests and checks syntax-related Python lint rules.
 
 ## License
 
-MIT
-
-## How this was built
-
-Specification and judgment: human. Implementation: AI models executing that specification under a build contract, with an adversarial audit before publish. The division of labor is the point; see [P07](https://victorvalentineromo.com/principles).
+MIT. See [LICENSE](LICENSE).
