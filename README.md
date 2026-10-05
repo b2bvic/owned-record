@@ -70,6 +70,10 @@ For path-only selection without context loading, inspect the `vault-route` helpe
 - [skills](https://github.com/b2bvic/skills): path selection and local artifact checks.
 - [owned-record](https://github.com/b2bvic/owned-record): owned memory cluster.
 
+## How this was built
+
+This README was written with model assistance in 2026. The code and tests in this repository are the evidence; read them to judge the tool.
+
 ## License
 
 [MIT](LICENSE).
