@@ -13,8 +13,9 @@ Output format:
 
 Config via environment:
   CC_BRIDGE_PROJECT   Claude Code project dir (auto-detected)
-  CC_BRIDGE_OUTPUT    Output directory for logs (default: ./claude-logs/)
+  CC_BRIDGE_OUTPUT    Output directory for logs (default: ~/claude-logs/)
   CC_BRIDGE_TZ        Timezone (default: America/New_York)
+  CC_BRIDGE_STATE     State JSON path (default: ~/.claude/cc-bridge-state.json)
   CC_BRIDGE_USER      Username in log headers (default: User)
 
 🌐 Victor Valentine Romo · victorvalentineromo.com · scalewithsearch.com
@@ -23,7 +24,6 @@ Config via environment:
 import json
 import logging
 import os
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,7 +52,7 @@ def _find_project_dir():
 
 PROJECTS_DIR = _find_project_dir()
 LOG_DIR = Path(os.environ.get("CC_BRIDGE_OUTPUT", str(Path.home() / "claude-logs")))
-STATE_FILE = Path.home() / ".claude" / "cc-bridge-state.json"
+STATE_FILE = Path(os.environ.get("CC_BRIDGE_STATE", str(Path.home() / ".claude" / "cc-bridge-state.json")))
 
 MAX_RESPONSE_CHARS = 2000
 SOURCE_TAG = "claude-code"
@@ -91,7 +91,13 @@ def find_active_transcript() -> "Path | None":
 def load_state() -> dict:
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text())
+            state = json.loads(STATE_FILE.read_text())
+            if (isinstance(state, dict)
+                    and isinstance(state.get("last_position"), int)
+                    and not isinstance(state["last_position"], bool)
+                    and state["last_position"] >= 0
+                    and isinstance(state.get("last_file"), (str, type(None)))):
+                return state
         except (json.JSONDecodeError, OSError):
             pass
     return {"last_file": None, "last_position": 0, "last_timestamp": None}
@@ -276,6 +282,10 @@ def process_transcript(transcript: Path, start_position: int) -> "tuple[int, int
             if not line:
                 break
 
+            if not line.endswith("\n"):
+                f.seek(line_start)
+                break
+
             stripped = line.strip()
             if not stripped:
                 continue
@@ -285,6 +295,8 @@ def process_transcript(transcript: Path, start_position: int) -> "tuple[int, int
             except json.JSONDecodeError:
                 continue
 
+            if not isinstance(record, dict):
+                continue
             rtype = record.get("type")
 
             if rtype == "user":
@@ -350,6 +362,7 @@ def process_transcript(transcript: Path, start_position: int) -> "tuple[int, int
 
 
 def main() -> None:
+    os.umask(0o077)
     transcript = find_active_transcript()
     if not transcript:
         return
@@ -362,6 +375,10 @@ def main() -> None:
         start_pos = 0
     else:
         start_pos = state.get("last_position", 0)
+
+    # A rotated or truncated file must restart from its beginning.
+    if transcript.stat().st_size < start_pos:
+        start_pos = 0
 
     # Nothing new to process
     if transcript.stat().st_size <= start_pos:
