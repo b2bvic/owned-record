@@ -1,6 +1,6 @@
 # Web page to Markdown CLI: web2md
 
-Web2md converts returned HTML into Markdown for researchers and content teams. Use source-attributed files to retain readable inputs for records and retrieval.
+`web2md` converts returned HTML into Markdown for researchers and content teams. Use source-attributed files to retain readable inputs for records and retrieval.
 
 [Project page](https://scalewithsearch.com/code/web2md)
 
