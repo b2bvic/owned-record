@@ -241,7 +241,7 @@ Noise accumulates. Finding relevant history requires reading everything. The log
 
 ## Convergence
 
-Multiple teams working independently arrive at this architecture. Enterprise organizations building LLM tooling and individual practitioners structuring personal knowledge bases both converge on keyword-triggered candidate selection. The pattern is structural, not incidental. The problem of "which file should the model read next?" has a narrow solution space, and most serious implementations land in the same region.
+The problem of "which file should the model read next?" has a narrow solution space. Keyword-triggered candidate selection is one answer to it. This repository does not survey other implementations.
 
 Anthropic's own product features (Projects, system prompts) are context routing with different names. The pattern is worth understanding before the interface abstracts it away.
 

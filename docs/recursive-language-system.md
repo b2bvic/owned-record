@@ -26,7 +26,7 @@ The system compounds. Each cycle adds signal. The LLM improves at your specific 
 | **LLM role** | Consumer of context | Consumer AND producer of context |
 | **Quality trajectory** | Flat (depends on corpus quality) | Compounding (successful outputs improve future outputs) |
 | **Session relationship** | Independent | Cumulative |
-| **Memory** | None between sessions | Persistent, structured |
+| **Memory** | Held by the retrieval corpus | Owned, structured files the operator controls |
 
 RAG asks: "What do we know that helps answer this?"
 
@@ -102,7 +102,7 @@ Not everything recurses. The human decides what persists, what archives, what ge
 
 | Problem | RLS Solution |
 |---------|--------------|
-| Amnesia between sessions | Vault persists context |
+| Context held in a vendor session or account | Owned files persist context across clients |
 | Repeating yourself | Decisions documented, then read from the selected domain file |
 | Inconsistent voice | Calibration layer enforced at system level |
 | Starting from zero | Previous outputs bootstrap new sessions |
