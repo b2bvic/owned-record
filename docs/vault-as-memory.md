@@ -1,12 +1,12 @@
 # Vault-as-Memory
 
-> Your vault becomes searchable memory. Every file has an address. Every thought can be found.
+> Keep working records in searchable files you control. Retrieval can miss relevant material.
 
 ---
 
 ## The Problem
 
-LLMs forget everything between sessions. Every conversation starts fresh. You re-explain context, re-share preferences, re-establish rules. The knowledge exists somewhere in your notes. The model cannot find it.
+Agent sessions can lack the records needed for a task. Keep decisions and working context in files you control. Select relevant files before reasoning begins.
 
 Copy-pasting context does not scale. Context grows. Conversations vary. What Task A requires differs from Task B.
 
@@ -95,7 +95,7 @@ Reverse-chronological activity logs. Preserve what happened so future sessions c
 
 ### 4. _RECENT.md — Short-Term Memory
 
-Auto-generated list of files modified in the last 24 hours. Recency bias, formalized. The LLM sees what's "hot" without searching the entire vault.
+The reference includes a recency note. The following command lists Markdown files modified in the last 24 hours. Run it explicitly to inspect recent changes.
 
 ```bash
 find "/path/to/vault" -name "*.md" -type f -mmin -1440 \

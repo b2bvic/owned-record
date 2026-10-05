@@ -11,10 +11,27 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
       - name: Check shell syntax
         run: bash -n scripts/setup.sh .claude/hooks/*.sh tests/test_setup.sh
+      - name: Install lint tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck jq
+      - name: Shell lint
+        run: shellcheck scripts/setup.sh .claude/hooks/*.sh tests/test_setup.sh
+      - name: Compile Python
+        run: python3 -m compileall -q scripts .claude/hooks
       - name: Run routing tests
-        run: python3 tests/test_route_domain.py
+        run: python3 -m unittest discover -s tests -v
       - name: Run setup tests
         run: bash tests/test_setup.sh
+      - name: Install Python lint tool
+        run: python3 -m pip install ruff==0.16.10
+      - name: Python lint
+        run: ruff check --select F,E9 scripts .claude/hooks/route_domain.py tests
+      - name: Check isolated demo
+        run: bash -n examples/demo.sh && shellcheck examples/demo.sh && bash examples/demo.sh

@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+REPO_ROOT="$(CDPATH="" cd -- "$(dirname -- "$0")/.." && pwd)"
 SETUP_CONFIG="$REPO_ROOT/scripts/setup_config.py"
 
 echo ""
@@ -109,7 +109,7 @@ echo "  5. Run: claude"
 echo ""
 echo "  Optional:"
 echo "  - Opt in to PreToolUse memory by adding pretool-memory.sh in .claude/settings.json"
-echo "  - Install QMD (https://github.com/aethermonkey/qmd) if you enable that hook"
+echo "  - Install QMD (https://github.com/tobi/qmd) if you enable that hook"
 echo ""
 echo "  For the full architecture explanation, see docs/"
 echo ""
