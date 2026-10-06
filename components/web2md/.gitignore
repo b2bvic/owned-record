@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.md
+!README.md
+.DS_Store
+.venv/
+.pytest_cache/
+.ruff_cache/
+!SECURITY.md
+!CONTRIBUTING.md
