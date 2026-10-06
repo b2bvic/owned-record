@@ -3,7 +3,7 @@
 pretool-memory retrieves local search results before selected Claude Code tool calls for operators using hosted Claude models.
 It supplies candidate context from owned records when the current session needs earlier decisions.
 
-[Project page](https://scalewithsearch.com/code/pretool-memory)
+[Project page](https://scalewithsearch.com/code/owned-record#pretool-memory)
 
 ## Install
 
@@ -11,8 +11,8 @@ Requirements: Bash, `jq`, `shasum`, and a configured [QMD](https://github.com/to
 Optional SQLite FTS5 session recall requires `sqlite3` and a compatible `fts_unified` table.
 
 ```sh
-git clone https://github.com/b2bvic/pretool-memory.git
-cd pretool-memory
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record/components/pretool-memory
 ```
 
 The quick start also requires Python 3.
@@ -28,8 +28,8 @@ The demo builds a synthetic transcript and supplies a mock QMD executable.
 It prints `PreToolUse` JSON with a sample `additionalContext` value.
 Its temporary files are removed when the demo exits.
 
-For real use, copy `pretool-memory.sh` into your project's `.claude/hooks/` directory.
-Merge this opt-in entry into `.claude/settings.json` after reviewing the corpus:
+For real use in this checkout, review `components/pretool-memory/pretool-memory.sh`.
+After reviewing the corpus, merge this opt-in entry into the root `.claude/settings.json`:
 
 ```json
 {
@@ -40,7 +40,7 @@ Merge this opt-in entry into `.claude/settings.json` after reviewing the corpus:
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pretool-memory.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/components/pretool-memory/pretool-memory.sh\""
           }
         ]
       }
@@ -48,6 +48,8 @@ Merge this opt-in entry into `.claude/settings.json` after reviewing the corpus:
   }
 }
 ```
+
+For a separate project, copy the script into its `.claude/hooks/` folder and adjust the hook command to that path.
 
 Use the [Claude Code hook reference](https://code.claude.com/docs/en/hooks) when merging existing settings.
 
@@ -108,10 +110,10 @@ Install ShellCheck and Ruff 0.16.10 for lint.
 
 ## Related repositories
 
-- [owned-record](https://github.com/b2bvic/owned-record): Markdown context folders and routing configuration.
+- [owned-record](../../): Markdown context folders and routing configuration.
 - [vault-crawl](https://github.com/b2bvic/vault-crawl): Retrieve source material and preserve provenance.
-- [cc-bridge](https://github.com/b2bvic/cc-bridge): Convert transcript exchanges to Markdown logs.
-- [voice-calibration](https://github.com/b2bvic/voice-calibration): Recall writing samples for a target file genre.
+- [cc-bridge](../cc-bridge): Convert transcript exchanges to Markdown logs.
+- [voice-calibration](../voice-calibration): Recall writing samples for a target file genre.
 
 ## License
 

@@ -3,15 +3,15 @@
 Session-ledger archives local Claude Code and Codex CLI transcripts in SQLite for operators who use hosted models.
 It keeps an AI agent session audit trail when decisions and tool results span separate sessions.
 
-[Project page](https://scalewithsearch.com/code/session-ledger)
+[Project page](https://scalewithsearch.com/code/owned-record#session-ledger)
 
 ## Install
 
 Use Git and Python 3.11 or newer with SQLite FTS5 support. The runtime needs no pip packages.
 
 ```bash
-git clone https://github.com/b2bvic/session-ledger.git
-cd session-ledger
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record/components/session-ledger
 ```
 
 For a source installation after review:
@@ -86,9 +86,9 @@ See [Build a macOS release](RELEASING.md) for packaging instructions.
 ## Related repositories
 
 - [agent-oversight](https://github.com/b2bvic/agent-oversight): orchestration cluster and evaluation guide.
-- [agent-monitor](https://github.com/b2bvic/agent-monitor): timestamp-filtered usage observations.
-- [skills](https://github.com/b2bvic/skills): session search and local artifact checks.
-- [owned-record](https://github.com/b2bvic/owned-record): owned memory cluster.
+- [agent-monitor](https://github.com/b2bvic/agent-oversight/tree/main/components/agent-monitor): timestamp-filtered usage observations.
+- [skills](https://github.com/b2bvic/agent-oversight/tree/main/components/skills): session search and local artifact checks.
+- [owned-record](../../): owned memory cluster.
 
 ## How this was built
 

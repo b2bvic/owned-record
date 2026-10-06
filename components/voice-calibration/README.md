@@ -3,15 +3,15 @@
 voice-calibration selects local writing samples before Claude Code Write and Edit calls for operators working with hosted models.
 It supplies genre-specific examples when a session needs the author's written style.
 
-[Project page](https://scalewithsearch.com/code/voice-calibration)
+[Project page](https://scalewithsearch.com/code/owned-record#voice-calibration)
 
 ## Install
 
 Requirements: Git, Bash, `jq`, `shasum`, and a configured [QMD](https://github.com/tobi/qmd) sample collection.
 
 ```sh
-git clone https://github.com/b2bvic/voice-calibration.git
-cd voice-calibration
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record/components/voice-calibration
 ```
 
 ## Quick start
@@ -24,8 +24,8 @@ The demo uses a synthetic writing sample and a mock QMD executable.
 It prints `PreToolUse` JSON with journal calibration context.
 It does not install a hook or contact a model service.
 
-For real use, copy `voice-calibration.sh` into your project's `.claude/hooks/` directory.
-Review its path patterns and search queries before merging this opt-in entry into `.claude/settings.json`:
+For real use in this checkout, review `components/voice-calibration/voice-calibration.sh`.
+Review its path patterns and search queries before merging this opt-in entry into the root `.claude/settings.json`:
 
 ```json
 {
@@ -36,7 +36,7 @@ Review its path patterns and search queries before merging this opt-in entry int
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/voice-calibration.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/components/voice-calibration/voice-calibration.sh\""
           }
         ]
       }
@@ -44,6 +44,8 @@ Review its path patterns and search queries before merging this opt-in entry int
   }
 }
 ```
+
+For a separate project, copy the script into its `.claude/hooks/` folder and adjust the hook command to that path.
 
 Use the [Claude Code hook reference](https://code.claude.com/docs/en/hooks) when merging existing settings.
 
@@ -105,10 +107,10 @@ Install ShellCheck and Ruff 0.16.10 for lint.
 
 ## Related repositories
 
-- [owned-record](https://github.com/b2bvic/owned-record): Markdown context folders and routing configuration.
-- [pretool-memory](https://github.com/b2bvic/pretool-memory): Recall owned records before selected tool calls.
+- [owned-record](../../): Markdown context folders and routing configuration.
+- [pretool-memory](../pretool-memory): Recall owned records before selected tool calls.
 - [vault-crawl](https://github.com/b2bvic/vault-crawl): Retrieve source material and preserve provenance.
-- [cc-bridge](https://github.com/b2bvic/cc-bridge): Convert transcript exchanges to Markdown logs.
+- [cc-bridge](../cc-bridge): Convert transcript exchanges to Markdown logs.
 
 ## License
 

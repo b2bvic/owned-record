@@ -3,7 +3,7 @@
 cc-bridge converts Claude Code JSONL transcripts to daily Markdown logs for operators preserving hosted-model session records.
 It keeps visible exchanges readable outside the original client when you need an owned activity history.
 
-[Project page](https://scalewithsearch.com/code/cc-bridge)
+[Project page](https://scalewithsearch.com/code/owned-record#cc-bridge)
 
 ## Install
 
@@ -11,8 +11,8 @@ Requirements: Git, Bash for the demo, and Python 3 with `zoneinfo` and timezone 
 The converter uses the Python standard library.
 
 ```sh
-git clone https://github.com/b2bvic/cc-bridge.git
-cd cc-bridge
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record/components/cc-bridge
 chmod u+x cc-bridge
 ```
 
@@ -90,10 +90,10 @@ Install ShellCheck and Ruff 0.16.10 for lint.
 
 ## Related repositories
 
-- [owned-record](https://github.com/b2bvic/owned-record): Markdown context folders and routing configuration.
-- [pretool-memory](https://github.com/b2bvic/pretool-memory): Recall owned records before selected tool calls.
+- [owned-record](../../): Markdown context folders and routing configuration.
+- [pretool-memory](../pretool-memory): Recall owned records before selected tool calls.
 - [vault-crawl](https://github.com/b2bvic/vault-crawl): Retrieve source material and preserve provenance.
-- [voice-calibration](https://github.com/b2bvic/voice-calibration): Recall writing samples for a target file genre.
+- [voice-calibration](../voice-calibration): Recall writing samples for a target file genre.
 
 ## License
 

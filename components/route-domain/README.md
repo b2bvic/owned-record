@@ -3,15 +3,15 @@
 Route-domain loads matching Markdown context files for Claude Code operators who use hosted models.
 It reduces repeated context selection by mapping prompt keywords to example domain paths.
 
-[Project page](https://scalewithsearch.com/code/route-domain)
+[Project page](https://scalewithsearch.com/code/owned-record#route-domain)
 
 ## Install
 
 Use Bash, jq, and Git. The regression tests use Python 3.11 or newer.
 
 ```bash
-git clone https://github.com/b2bvic/route-domain.git
-cd route-domain
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record/components/route-domain
 ```
 
 Review the domain names, keyword expressions, and paths in `route-domain.sh` before registering a hook.
@@ -62,13 +62,13 @@ python3 -m unittest discover -s tests -v
 - Missing context files produce no context body. Invalid stdin input returns a failing status before loading context.
 - The shipped paths and skill hints require customization. This repository ships no Codex CLI hook adapter.
 
-For path-only selection without context loading, inspect the `vault-route` helper in the skills repository.
+For path-only selection without context loading, inspect the `vault-route` helper in [agent-oversight/components/skills](https://github.com/b2bvic/agent-oversight/tree/main/components/skills).
 
 ## Related repositories
 
 - [agent-oversight](https://github.com/b2bvic/agent-oversight): orchestration cluster and evidence boundaries.
-- [skills](https://github.com/b2bvic/skills): path selection and local artifact checks.
-- [owned-record](https://github.com/b2bvic/owned-record): owned memory cluster.
+- [skills](https://github.com/b2bvic/agent-oversight/tree/main/components/skills): path selection and local artifact checks.
+- [owned-record](../../): owned memory cluster.
 
 ## How this was built
 

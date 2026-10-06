@@ -2,15 +2,15 @@
 
 `web2md` converts returned HTML into Markdown for researchers and content teams. Use source-attributed files to retain readable inputs for records and retrieval.
 
-[Project page](https://scalewithsearch.com/code/web2md)
+[Project page](https://scalewithsearch.com/code/owned-record#web2md)
 
 ## Install
 
 Requirements: Python 3.11 or later.
 
 ```bash
-gh repo clone b2bvic/web2md
-cd web2md
+git clone https://github.com/b2bvic/owned-record.git
+cd owned-record/components/web2md
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 ```
@@ -41,8 +41,8 @@ This example uses synthetic input without fetching a website.
 
 ## Related repositories
 
-- [twitter-bookmarks](https://github.com/b2bvic/twitter-bookmarks)
-- [sws-skills](https://github.com/b2bvic/sws-skills)
+- [twitter-bookmarks](https://github.com/b2bvic/ops-scripts/tree/main/components/twitter-bookmarks)
+- [sws-skills](https://github.com/b2bvic/seo-checks/tree/main/prompts)
 
 ## Development
 

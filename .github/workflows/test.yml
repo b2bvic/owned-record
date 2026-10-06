@@ -35,3 +35,31 @@ jobs:
         run: ruff check --select F,E9 scripts .claude/hooks/route_domain.py tests
       - name: Check isolated demo
         run: bash -n examples/demo.sh && shellcheck examples/demo.sh && bash examples/demo.sh
+
+  components:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [session-ledger, cc-bridge, web2md, route-domain, pretool-memory, voice-calibration]
+    defaults:
+      run:
+        working-directory: components/${{ matrix.component }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install shell test dependency
+        run: sudo apt-get update && sudo apt-get install -y jq sqlite3
+      - name: Install web conversion dependencies
+        if: matrix.component == 'web2md'
+        run: python3 -m pip install -r requirements-dev.txt
+      - name: Run standard-library component suite
+        if: matrix.component != 'web2md'
+        run: python3 -m unittest discover -s tests -v
+      - name: Run web conversion suite
+        if: matrix.component == 'web2md'
+        run: python3 -m pytest -q
